@@ -1,0 +1,36 @@
+name: Run Trading Bot
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+  schedule:
+    - cron: '*/5 * * * *' # Runs every 5 minutes (adjust as needed for your bot's frequency)
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest # The operating system to run the job on
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4 # Action to pull your repo's code
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Or your desired Python version
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt # Make sure you have a requirements.txt
+
+    - name: Run Python script
+      run: python my_trading_bot.py
+
+    # IMPORTANT: Handle API Keys Securely with GitHub Secrets
+    # You would typically pass API keys as environment variables
+    # using GitHub Secrets, NOT hardcoded in the script.
+    # Example (replace with your actual env variables used in my_trading_bot.py):
+    # - name: Run Python script (with secrets)
+    #   env:
+    #     DELTA_API_KEY: ${{ secrets.DELTA_API_KEY }}
+    #     DELTA_API_SECRET: ${{ secrets.DELTA_API_SECRET }}
+    #   run: python my_trading_bot.py
