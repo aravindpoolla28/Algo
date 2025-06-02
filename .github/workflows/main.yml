@@ -23,7 +23,7 @@ jobs:
         pip install -r requirements.txt # Make sure you have a requirements.txt
 
     - name: Run Python script
-      run: python my_trading_bot.py
+      run: python Algo, bracket order, check for open orders, multiple accounts.py
 
     # IMPORTANT: Handle API Keys Securely with GitHub Secrets
     # You would typically pass API keys as environment variables
