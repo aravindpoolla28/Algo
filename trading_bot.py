@@ -246,8 +246,10 @@ def place_order(client, side, symbol, size, signal_candle_data):
 # ==== Main Loop ====
 while True:
     # Get current time in UTC, then convert to India timezone
-    current_utc_time = datetime.datetime.now(datetime.UTC)
-    current_ist_time = current_utc_time.replace(tzinfo=pytz.utc).astimezone(INDIA_TZ)
+    # MODIFIED: Use datetime.now(pytz.utc) or datetime.datetime.utcnow()
+    # as datetime.UTC is only available from Python 3.11+
+    current_utc_time = datetime.datetime.now(pytz.utc)
+    current_ist_time = current_utc_time.astimezone(INDIA_TZ)
 
     cmin = current_ist_time.strftime("%M")
     csec = current_ist_time.strftime("%S")
@@ -260,8 +262,10 @@ while True:
 
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
         start_date = datetime.datetime.combine(yesterday, datetime.time(0, 0, 0))
-        start_timestamp = int(start_date.timestamp())
-        end_timestamp = int(datetime.datetime.now().timestamp())
+        # MODIFIED: Localize start_date to UTC before getting timestamp if it's meant to be UTC
+        start_timestamp = int(pytz.utc.localize(start_date).timestamp())
+        end_timestamp = int(datetime.datetime.now(pytz.utc).timestamp())
+
 
         headers = {'Accept': 'application/json'}
         r = requests.get(
