@@ -6,17 +6,22 @@ import datetime
 from ta.momentum import RSIIndicator as RSI
 from ta.trend import ADXIndicator
 from delta_rest_client import DeltaRestClient, OrderType # Ensure this is imported
+import pytz # Import pytz for timezone conversion
 
 
-
+# ==== Store all client credentials here ====
 # ADD YOUR MULTIPLE API KEYS AND SECRETS HERE
 # Example:
 client_credentials = [
     {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
     {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
     # Add more accounts as needed
-    # {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
 ]
+
+# ==== Telegram Bot Configuration ====
+# IMPORTANT: These values are now populated based on our previous conversation.
+TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
+TELEGRAM_CHAT_ID = '-1002715827375'   # Your group chat ID (starts with -)
 
 # ==== Constants ====
 RSI_Period = 30
@@ -27,8 +32,11 @@ adx_BT = 45
 adx_BTU = 50
 Time_period = '5m'
 symbol = 'BTCUSD'
-order_quantity = 1
+order_quantity = 10
 TP_RISK_RATIO = 5
+
+# Define the target timezone
+INDIA_TZ = pytz.timezone('Asia/Kolkata')
 
 # ==== Helper Function for Price Rounding ====
 def round_to_tick_size(price, tick_size):
@@ -37,45 +45,68 @@ def round_to_tick_size(price, tick_size):
     Ensures inputs are floats for division and handles zero tick_size.
     """
     try:
-        # Explicitly convert to float to prevent type errors (e.g., if tick_size is a string)
         price_f = float(price)
         tick_size_f = float(tick_size)
     except (ValueError, TypeError) as e:
         print(f"Error converting price ({price}) or tick_size ({tick_size}) to float in round_to_tick_size: {e}")
         sys.stdout.flush()
-        # Fallback: if conversion fails, try to return original price as float, or 0.0
         return float(price) if isinstance(price, (int, float)) else 0.0
 
     if tick_size_f == 0:
         print("Warning: tick_size is zero in round_to_tick_size. Returning original price.")
         sys.stdout.flush()
-        return price_f # Return the original price as a float if tick_size is zero
+        return price_f
     return round(price_f / tick_size_f) * tick_size_f
+
+# ==== Function to send Telegram messages ====
+def send_telegram_message(message):
+    """
+    Sends a message to the configured Telegram chat.
+    """
+    # Check if the token or chat ID are still placeholders
+    if TELEGRAM_BOT_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN' or TELEGRAM_CHAT_ID == 'YOUR_TELEGRAM_CHAT_ID':
+        print("Telegram bot token or chat ID not configured. Skipping Telegram notification.")
+        sys.stdout.flush()
+        return
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'Markdown' # Optional: allows bold, italics, etc.
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status() # Raise an exception for HTTP errors
+        print(f"Telegram message sent successfully.")
+        sys.stdout.flush()
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending Telegram message: {e}")
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"An unexpected error occurred while sending Telegram message: {e}")
+        sys.stdout.flush()
+
 
 # ==== Function to check for open orders and positions ====
 def check_for_open_trades(client, symbol):
     """
     Checks if there are any open orders or current positions for the given symbol
     for a specific client account.
-
     Args:
         client (DeltaRestClient): An initialized DeltaRestClient instance.
         symbol (str): The trading pair symbol.
-
     Returns:
         bool: True if there are open orders or a non-zero position, False otherwise.
     """
-    # Truncate API key for logging to prevent full key exposure in logs
     truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
     try:
-        # 1. Check for open orders
         open_orders_response = client.get_live_orders()
         if open_orders_response and isinstance(open_orders_response, list) and len(open_orders_response) > 0:
             print(f"Client {truncated_api_key}: Found {len(open_orders_response)} open order(s). Skipping new order.")
             sys.stdout.flush()
             return True
 
-        # 2. Check for open positions
         product = client.get_product(symbol)
         market_id = product['id']
 
@@ -98,7 +129,6 @@ def check_for_open_trades(client, symbol):
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
-        # On error checking, it's safer to assume a problem and prevent new orders for this client.
         return True
 
 
@@ -112,11 +142,8 @@ def place_order(client, side, symbol, size, signal_candle_data):
         side (str): The order side ('buy' or 'sell').
         symbol (str): The trading pair symbol.
         size (int): The quantity of the asset to trade.
-        signal_candle_data (pd.Series): The pandas Series containing the
-                                        OHLCV data for the candle that
-                                        generated the signal.
+        signal_candle_data (pd.Series): The pandas Series containing the OHLCV data for the candle that generated the signal.
     """
-    # Truncate API key for logging
     truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
     try:
         product = client.get_product(symbol)
@@ -183,25 +210,49 @@ def place_order(client, side, symbol, size, signal_candle_data):
         print(f"Client {truncated_api_key}: Bracket order placed for {side.upper()}. Response: {order_response_data}")
         sys.stdout.flush()
 
+        # Send Telegram notification after successful order placement
+        telegram_message = (
+            f"🔔 *TRADE ALERT!* 🔔\n"
+            f"Client: `{truncated_api_key}`\n"
+            f"Symbol: `{symbol}`\n"
+            f"Side: *{side.upper()}*\n"
+            f"Quantity: `{size}`\n"
+            f"Entry Est: `{entry_price_estimate:.2f}`\n"
+            f"SL: `{stop_loss_price:.2f}`\n"
+            f"TP: `{take_profit_price:.2f}`\n"
+            f"Response: ```json\n{order_response_data}\n```"
+        )
+        send_telegram_message(telegram_message)
+
     except Exception as e:
         print(f"Client {truncated_api_key}: Order failed: {e}")
         sys.stdout.flush()
         import traceback
         traceback.print_exc()
         sys.stdout.flush()
+        telegram_error_message = (
+            f"❌ *ORDER FAILED!* ❌\n"
+            f"Client: `{truncated_api_key}`\n"
+            f"Symbol: `{symbol}`\n"
+            f"Side: *{side.upper()}*\n"
+            f"Error: `{e}`"
+        )
+        send_telegram_message(telegram_error_message)
 
 # ==== Main Loop ====
 while True:
-    t = time.localtime()
-    cmin = time.strftime("%M", t)
-    csec = time.strftime("%S", t)
+    # Get current time in UTC, then convert to India timezone
+    current_utc_time = datetime.datetime.now(datetime.UTC)
+    current_ist_time = current_utc_time.replace(tzinfo=pytz.utc).astimezone(INDIA_TZ)
+
+    cmin = current_ist_time.strftime("%M")
+    csec = current_ist_time.strftime("%S")
+
     time.sleep(1)
 
     if int(cmin) % 1 == 0 and int(csec) == 6:
-        print(f"\n--- Running trade logic at {time.strftime('%Y-%m-%d %H:%M:%S', t)} ---")
+        # print(f"\n--- Running trade logic at {current_ist_time.strftime('%Y-%m-%d %H:%M:%S')} (IST) ---")
         sys.stdout.flush()
-
-        # No global check here. Each client will be checked individually.
 
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
         start_date = datetime.datetime.combine(yesterday, datetime.time(0, 0, 0))
@@ -217,7 +268,7 @@ while True:
 
         if r.status_code == 200 and 'result' in r.json():
             df = pd.DataFrame(r.json()['result'])
-            df['date_time'] = pd.to_datetime(df['time'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Asia/Kolkata').dt.tz_localize(None)
+            df['date_time'] = pd.to_datetime(df['time'], unit='s').dt.tz_localize('UTC').dt.tz_convert(INDIA_TZ).dt.tz_localize(None)
             df = df.sort_values(by='time', ascending=True)
 
             if len(df) < max(RSI_Period, ADX_Len) + 2:
@@ -232,20 +283,11 @@ while True:
             df['vol_change'] = (df['volume'] - df['volume'].shift(1)) / df['volume'].shift(1).replace(0, 1)
             df['adx'] = ADXIndicator(df['high'], df['low'], df['close'], window=ADX_Len).adx()
 
-            df['Follow_Sell'] = ((df['Prsi'] - df['rsi']) >= 3.0) & \
-                                (df['volume'] > df['VolEMA']) & \
-                                (df['Prsi'] > 50) & (df['Prsi'] < 55) & \
-                                (df['adx'] >= adx_follow) & (df['vol_change'] >= 0.75)
-            df['Follow_Buy'] = ((df['rsi'] - df['Prsi']) >= 3.0) & \
-                               (df['volume'] > df['VolEMA']) & \
-                               (df['Prsi'] < 50) & (df['Prsi'] > 45) & \
-                               (df['adx'] >= adx_follow) & (df['vol_change'] >= 0.75)
-            df['BT_Sell'] = ((df['Prsi'] - df['rsi']) >= 1.0) & \
-                            (df['Prsi'] > 35) & \
-                            (df['adx'] >= adx_BT) & (df['adx'] < adx_BTU)
-            df['BT_Buy'] = ((df['rsi'] - df['Prsi']) >= 1.0) & \
-                           (df['Prsi'] < 65) & \
-                           (df['adx'] >= adx_BT) & (df['adx'] < adx_BTU)
+
+            df['Follow_Sell'] = ((df['Prsi'] - df['rsi']) >= 3.0) & (df['volume'] > df['VolEMA']) & (df['Prsi'] > 50) & (df['Prsi'] < 55) & (df['adx'] >= adx_follow) & (df['vol_change'] >= 0.75)
+            df['Follow_Buy'] = ((df['rsi'] - df['Prsi']) >= 3.0) & (df['volume'] > df['VolEMA']) & (df['Prsi'] < 50) & (df['Prsi'] > 45) & (df['adx'] >= adx_follow) & (df['vol_change'] >= 0.75)
+            df['BT_Sell'] = ((df['Prsi'] - df['rsi']) >= 3.0) & (df['Prsi'] > 65) & (df['adx'] >= adx_BT) & (df['adx'] < adx_BTU)
+            df['BT_Buy'] = ((df['rsi'] - df['Prsi']) >= 3.0) & (df['Prsi'] < 35) & (df['adx'] >= adx_BT) & (df['adx'] < adx_BTU)
 
             df_cleaned = df.dropna()
 
@@ -265,7 +307,7 @@ while True:
                 time.sleep(55)
                 continue
 
-            print(f">[{latest['date_time'].time()}]")
+            print(f"> No signal detected at: [{latest['date_time'].time()}]")
             sys.stdout.flush()
 
             signal_type = None
@@ -273,22 +315,20 @@ while True:
                 signal_type = 'sell'
             elif latest['Follow_Buy']:
                 signal_type = 'buy'
-            elif latest['BT_Sell']:
-                signal_type = 'sell'
-            elif latest['BT_Buy']:
-                signal_type = 'buy'
+            # elif latest['BT_Sell']:
+            #     signal_type = 'sell'
+            # elif latest['BT_Buy']:
+            #     signal_type = 'buy'
 
             if signal_type:
                 print(f"{signal_type.upper()} 🔔signal detected at {latest['date_time']}")
                 sys.stdout.flush()
-                # Loop through credentials and place orders for each account
                 for creds in client_credentials:
                     client = DeltaRestClient(
                         base_url='https://api.india.delta.exchange',
                         api_key=creds['api_key'],
                         api_secret=creds['api_secret']
                     )
-                    # Check for open trades specifically for this client
                     if not check_for_open_trades(client, symbol):
                         place_order(client, signal_type, symbol, order_quantity, latest)
                     else:
@@ -296,7 +336,8 @@ while True:
                         print(f"Client {truncated_api_key}: Skipping order placement due to existing open trades.")
                         sys.stdout.flush()
             else:
-                print("No trade signal detected.")
+                # MODIFIED SECTION: Print indicator values when no signal is detected
+                print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
                 sys.stdout.flush()
 
         else:
