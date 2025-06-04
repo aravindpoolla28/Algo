@@ -43,10 +43,10 @@ jobs:
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     # This step executes your Python script.
-    # Replace 'your_trading_bot_script.py' with the actual name of your Python file.
+    # Updated to use the new file name: 'trading_bot.py'
     - name: Execute Trading Bot Script
       run: |
-        python your_trading_bot_script.py
+        python trading_bot.py
 
     # Optional: Add steps here for notifications on script completion/failure,
     # or to upload logs if the script exits.
