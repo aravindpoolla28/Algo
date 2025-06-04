@@ -7,21 +7,25 @@ from ta.momentum import RSIIndicator as RSI
 from ta.trend import ADXIndicator
 from delta_rest_client import DeltaRestClient, OrderType # Ensure this is imported
 import pytz # Import pytz for timezone conversion
-
+import os # Import os to read environment variables
 
 # ==== Store all client credentials here ====
-# ADD YOUR MULTIPLE API KEYS AND SECRETS HERE
+# IMPORTANT: DO NOT HARDCODE API KEYS/SECRETS HERE WHEN PUSHING TO GITHUB.
+# Use GitHub Secrets and environment variables.
 # Example:
 client_credentials = [
-    {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
-    {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
-    # Add more accounts as needed
+    # Replace with environment variable names you set in GitHub Secrets
+    # For multiple accounts, define multiple sets of secrets (e.g., DELTA_API_KEY_1, DELTA_SECRET_1, etc.)
+    {"api_key": os.environ.get('DELTA_API_KEY_1'), "api_secret": os.environ.get('DELTA_SECRET_1')},
+    {"api_key": os.environ.get('DELTA_API_KEY_2'), "api_secret": os.environ.get('DELTA_SECRET_2')},
+    # Add more accounts by adding corresponding environment variables in GitHub Secrets
 ]
 
 # ==== Telegram Bot Configuration ====
-# IMPORTANT: These values are now populated based on our previous conversation.
-TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
-TELEGRAM_CHAT_ID = '-1002715827375'   # Your group chat ID (starts with -)
+# IMPORTANT: DO NOT HARDCODE TELEGRAM TOKEN/CHAT ID HERE WHEN PUSHING TO GITHUB.
+# Use GitHub Secrets and environment variables.
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN') # Get this from BotFather
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')   # Your group chat ID (starts with -)
 
 # ==== Constants ====
 RSI_Period = 30
@@ -63,9 +67,9 @@ def send_telegram_message(message):
     """
     Sends a message to the configured Telegram chat.
     """
-    # Check if the token or chat ID are still placeholders
-    if TELEGRAM_BOT_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN' or TELEGRAM_CHAT_ID == 'YOUR_TELEGRAM_CHAT_ID':
-        print("Telegram bot token or chat ID not configured. Skipping Telegram notification.")
+    # Check if the token or chat ID are still None (not set via environment variables)
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram bot token or chat ID not configured in environment variables. Skipping Telegram notification.")
         sys.stdout.flush()
         return
 
@@ -99,7 +103,7 @@ def check_for_open_trades(client, symbol):
     Returns:
         bool: True if there are open orders or a non-zero position, False otherwise.
     """
-    truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
+    truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:] if client.api_key else "N/A"
     try:
         open_orders_response = client.get_live_orders()
         if open_orders_response and isinstance(open_orders_response, list) and len(open_orders_response) > 0:
@@ -144,7 +148,7 @@ def place_order(client, side, symbol, size, signal_candle_data):
         size (int): The quantity of the asset to trade.
         signal_candle_data (pd.Series): The pandas Series containing the OHLCV data for the candle that generated the signal.
     """
-    truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
+    truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:] if client.api_key else "N/A"
     try:
         product = client.get_product(symbol)
         market_id = product['id']
@@ -315,6 +319,8 @@ while True:
                 signal_type = 'sell'
             elif latest['Follow_Buy']:
                 signal_type = 'buy'
+            # The user had commented out BT_Sell and BT_Buy in their provided code,
+            # so I'm keeping them commented out as per the latest user code.
             # elif latest['BT_Sell']:
             #     signal_type = 'sell'
             # elif latest['BT_Buy']:
@@ -324,6 +330,13 @@ while True:
                 print(f"{signal_type.upper()} 🔔signal detected at {latest['date_time']}")
                 sys.stdout.flush()
                 for creds in client_credentials:
+                    # Ensure API keys are available from environment variables
+                    if not creds.get('api_key') or not creds.get('api_secret'):
+                        print(f"Skipping client due to missing API key or secret in environment variables.")
+                        sys.stdout.flush()
+                        send_telegram_message(f"⚠️ *Configuration Error* ⚠️\nSkipping client due to missing API key or secret in environment variables.")
+                        continue
+
                     client = DeltaRestClient(
                         base_url='https://api.india.delta.exchange',
                         api_key=creds['api_key'],
@@ -335,6 +348,8 @@ while True:
                         truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
                         print(f"Client {truncated_api_key}: Skipping order placement due to existing open trades.")
                         sys.stdout.flush()
+                        # Optional: Send Telegram message about skipping due to open trades
+                        # send_telegram_message(f"ℹ️ *Trade Skipped* ℹ️\nClient: `{truncated_api_key}`\nReason: Open trades detected. No new order placed.")
             else:
                 # MODIFIED SECTION: Print indicator values when no signal is detected
                 print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
@@ -343,5 +358,7 @@ while True:
         else:
             print(f"Error fetching data: {r.status_code}. Response: {r.text}")
             sys.stdout.flush()
+            send_telegram_message(f"❌ *Data Fetch Error!* ❌\nStatus Code: `{r.status_code}`\nResponse: `{r.text}`")
+
 
         time.sleep(55) # Sleep for almost the rest of the minute
