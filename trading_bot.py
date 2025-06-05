@@ -324,12 +324,12 @@ while True:
                 signal_type = 'sell'
             elif latest['Follow_Buy']:
                 signal_type = 'buy'
-            # The user had commented out BT_Sell and BT_Buy in their provided code,
-            # so I'm keeping them commented out as per the latest user code.
-            # elif latest['BT_Sell']:
-            #     signal_type = 'sell'
-            # elif latest['BT_Buy']:
-            #     signal_type = 'buy'
+            
+            
+            elif latest['BT_Sell']:
+                signal_type = 'sell'
+            elif latest['BT_Buy']:
+                signal_type = 'buy'
 
             if signal_type:
                 print(f"{signal_type.upper()} 🔔signal detected at {latest['date_time']}")
