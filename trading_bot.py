@@ -356,7 +356,7 @@ while True:
                         # send_telegram_message(f"ℹ️ *Trade Skipped* ℹ️\nClient: `{truncated_api_key}`\nReason: Open trades detected. No new order placed.")
             else:
                 # MODIFIED SECTION: Print indicator values when no signal is detected
-                print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
+                print(f"RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
                 sys.stdout.flush()
 
         else:
