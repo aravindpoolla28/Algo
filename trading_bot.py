@@ -315,7 +315,8 @@ while True:
                 time.sleep(55)
                 continue
 
-            print(f"> No signal detected at: [{latest['date_time'].time()}]")
+            #print(f"> No signal detected at: [{latest['date_time'].time()}]")
+            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
             signal_type = None
