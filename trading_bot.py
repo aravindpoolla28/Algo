@@ -30,7 +30,7 @@ adx_BT = 45
 adx_BTU = 50
 Time_period = '5m'
 symbol = 'BTCUSD'
-order_quantity = 10
+order_quantity = 5
 TP_RISK_RATIO = 5
 
 # Define the target timezone
