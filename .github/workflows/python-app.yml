@@ -34,17 +34,27 @@ jobs:
         python -m pip install --upgrade pip
         # Install common libraries
         pip install pandas requests pytz ta
-        # Install delta_rest_client. If this is a custom local file,
-        # you might need to adjust this step (e.g., copy it or add to PYTHONPATH).
-        # Assuming it's pip-installable:
+        # Install delta_rest_client. Assuming it's pip-installable.
         pip install delta_rest_client
 
         # If you have a requirements.txt file, you can use this instead:
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    # This step executes your Python script.
-    # Updated to use the new file name: 'trading_bot.py'
     - name: Execute Trading Bot Script
+      # IMPORTANT: This 'env' block below is CRUCIAL for passing your GitHub Secrets
+      # as environment variables to your Python script.
+      # Ensure the secret names (e.g., DELTA_API_KEY_1) match EXACTLY what you
+      # defined in your GitHub repository's Settings > Secrets and variables > Actions.
+      env:
+        # Delta Exchange API Keys/Secrets for multiple accounts
+        DELTA_API_KEY_1: ${{ secrets.DELTA_API_KEY_1 }}
+        DELTA_SECRET_1: ${{ secrets.DELTA_API_SECRET_1 }}
+        DELTA_API_KEY_2: ${{ secrets.DELTA_API_KEY_2 }} # Only if you have a second account
+        DELTA_SECRET_2: ${{ secrets.DELTA_SECRET_2 }} # Only if you have a second account
+
+        # Telegram Bot Credentials
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
         python trading_bot.py
 
