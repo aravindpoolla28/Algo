@@ -338,7 +338,8 @@ while True:
                         print(f"Client {truncated_api_key}: Skipping order placement due to existing open trades.")
                         sys.stdout.flush()
             else:
-                print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
+                #optional
+                #print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
                 sys.stdout.flush()
 
         else:
