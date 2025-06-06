@@ -9,6 +9,17 @@ from delta_rest_client import DeltaRestClient, OrderType # Ensure this is import
 import pytz # Import pytz for timezone conversion
 import os # Import os to read environment variables
 
+# ==== DEBUGGING: Print environment variables to verify they are loaded ====
+print(f"DEBUG: Checking environment variables:")
+print(f"DEBUG: TELEGRAM_BOT_TOKEN: '{os.environ.get('TELEGRAM_BOT_TOKEN')}'")
+print(f"DEBUG: TELEGRAM_CHAT_ID: '{os.environ.get('TELEGRAM_CHAT_ID')}'")
+print(f"DEBUG: DELTA_API_KEY_1: '{os.environ.get('DELTA_API_KEY_1')}'")
+print(f"DEBUG: DELTA_SECRET_1: '{os.environ.get('DELTA_SECRET_1')}'")
+print(f"DEBUG: DELTA_API_KEY_2: '{os.environ.get('DELTA_API_KEY_2')}'")
+print(f"DEBUG: DELTA_SECRET_2: '{os.environ.get('DELTA_SECRET_2')}'")
+sys.stdout.flush()
+# =========================================================================
+
 # ==== Store all client credentials here ====
 # IMPORTANT: DO NOT HARDCODE API KEYS/SECRETS HERE WHEN PUSHING TO GITHUB.
 # Use GitHub Secrets and environment variables.
@@ -366,4 +377,4 @@ while True:
             send_telegram_message(f"❌ *Data Fetch Error!* ❌\nStatus Code: `{r.status_code}`\nResponse: `{r.text}`")
 
 
-        time.sleep(55) # Sleep for almost the rest of the minute
+        time.sleep(55) # Sleep for almost the rest of the min
