@@ -41,20 +41,8 @@ jobs:
         # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Execute Trading Bot Script
-      # IMPORTANT: This 'env' block below is CRUCIAL for passing your GitHub Secrets
-      # as environment variables to your Python script.
-      # Ensure the secret names (e.g., DELTA_API_KEY_1) match EXACTLY what you
-      # defined in your GitHub repository's Settings > Secrets and variables > Actions.
-      env:
-        # Delta Exchange API Keys/Secrets for multiple accounts
-        DELTA_API_KEY_1: ${{ secrets.DELTA_API_KEY_1 }}
-        DELTA_SECRET_1: ${{ secrets.DELTA_API_SECRET_1 }}
-        DELTA_API_KEY_2: ${{ secrets.DELTA_API_KEY_2 }} # Only if you have a second account
-        DELTA_SECRET_2: ${{ secrets.DELTA_SECRET_2 }} # Only if you have a second account
-
-        # Telegram Bot Credentials
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # The 'env' block has been REMOVED because credentials are now hardcoded
+      # directly in the trading_bot.py script as per your request.
       run: |
         python trading_bot.py
 
