@@ -7,36 +7,19 @@ from ta.momentum import RSIIndicator as RSI
 from ta.trend import ADXIndicator
 from delta_rest_client import DeltaRestClient, OrderType # Ensure this is imported
 import pytz # Import pytz for timezone conversion
-import os # Import os to read environment variables
-
-# ==== DEBUGGING: Print environment variables to verify they are loaded ====
-print(f"DEBUG: Checking environment variables:")
-print(f"DEBUG: TELEGRAM_BOT_TOKEN: '{os.environ.get('TELEGRAM_BOT_TOKEN')}'")
-print(f"DEBUG: TELEGRAM_CHAT_ID: '{os.environ.get('TELEGRAM_CHAT_ID')}'")
-print(f"DEBUG: DELTA_API_KEY_1: '{os.environ.get('DELTA_API_KEY_1')}'")
-print(f"DEBUG: DELTA_SECRET_1: '{os.environ.get('DELTA_SECRET_1')}'")
-print(f"DEBUG: DELTA_API_KEY_2: '{os.environ.get('DELTA_API_KEY_2')}'")
-print(f"DEBUG: DELTA_SECRET_2: '{os.environ.get('DELTA_SECRET_2')}'")
-sys.stdout.flush()
-# =========================================================================
 
 # ==== Store all client credentials here ====
-# IMPORTANT: DO NOT HARDCODE API KEYS/SECRETS HERE WHEN PUSHING TO GITHUB.
-# Use GitHub Secrets and environment variables.
-# Example:
+
 client_credentials = [
-    # Replace with environment variable names you set in GitHub Secrets
-    # For multiple accounts, define multiple sets of secrets (e.g., DELTA_API_KEY_1, DELTA_SECRET_1, etc.)
-    {"api_key": os.environ.get('DELTA_API_KEY_1'), "api_secret": os.environ.get('DELTA_SECRET_1')},
-    {"api_key": os.environ.get('DELTA_API_KEY_2'), "api_secret": os.environ.get('DELTA_SECRET_2')},
-    # Add more accounts by adding corresponding environment variables in GitHub Secrets
+    {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
+    {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
 ]
 
 # ==== Telegram Bot Configuration ====
-# IMPORTANT: DO NOT HARDCODE TELEGRAM TOKEN/CHAT ID HERE WHEN PUSHING TO GITHUB.
-# Use GitHub Secrets and environment variables.
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN') # Get this from BotFather
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')   # Your group chat ID (starts with -)
+
+TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
+TELEGRAM_CHAT_ID = '-1002715827375'   # Your group chat ID (starts with -)
+
 
 # ==== Constants ====
 RSI_Period = 30
@@ -78,9 +61,10 @@ def send_telegram_message(message):
     """
     Sends a message to the configured Telegram chat.
     """
-    # Check if the token or chat ID are still None (not set via environment variables)
+    # With hardcoded values, this check is now mostly for illustrative purposes
+    # or if token/chat_id are empty strings in the hardcoded definition
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram bot token or chat ID not configured in environment variables. Skipping Telegram notification.")
+        print("Telegram bot token or chat ID is empty. Skipping Telegram notification.")
         sys.stdout.flush()
         return
 
@@ -257,8 +241,6 @@ def place_order(client, side, symbol, size, signal_candle_data):
 # ==== Main Loop ====
 while True:
     # Get current time in UTC, then convert to India timezone
-    # MODIFIED: Use datetime.now(pytz.utc) or datetime.datetime.utcnow()
-    # as datetime.UTC is only available from Python 3.11+
     current_utc_time = datetime.datetime.now(pytz.utc)
     current_ist_time = current_utc_time.astimezone(INDIA_TZ)
 
@@ -268,12 +250,10 @@ while True:
     time.sleep(1)
 
     if int(cmin) % 1 == 0 and int(csec) == 6:
-        # print(f"\n--- Running trade logic at {current_ist_time.strftime('%Y-%m-%d %H:%M:%S')} (IST) ---")
         sys.stdout.flush()
 
         yesterday = datetime.date.today() - datetime.timedelta(days=1)
         start_date = datetime.datetime.combine(yesterday, datetime.time(0, 0, 0))
-        # MODIFIED: Localize start_date to UTC before getting timestamp if it's meant to be UTC
         start_timestamp = int(pytz.utc.localize(start_date).timestamp())
         end_timestamp = int(datetime.datetime.now(pytz.utc).timestamp())
 
@@ -326,7 +306,6 @@ while True:
                 time.sleep(55)
                 continue
 
-            #print(f"> No signal detected at: [{latest['date_time'].time()}]")
             print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
@@ -335,8 +314,6 @@ while True:
                 signal_type = 'sell'
             elif latest['Follow_Buy']:
                 signal_type = 'buy'
-            
-            
             elif latest['BT_Sell']:
                 signal_type = 'sell'
             elif latest['BT_Buy']:
@@ -346,13 +323,9 @@ while True:
                 print(f"{signal_type.upper()} 🔔signal detected at {latest['date_time']}")
                 sys.stdout.flush()
                 for creds in client_credentials:
-                    # Ensure API keys are available from environment variables
-                    if not creds.get('api_key') or not creds.get('api_secret'):
-                        print(f"Skipping client due to missing API key or secret in environment variables.")
-                        sys.stdout.flush()
-                        send_telegram_message(f"⚠️ *Configuration Error* ⚠️\nSkipping client due to missing API key or secret in environment variables.")
-                        continue
-
+                    # The check for missing API keys/secrets is no longer needed here
+                    # as they are hardcoded. If a credential pair is empty, it means
+                    # it was hardcoded as such.
                     client = DeltaRestClient(
                         base_url='https://api.india.delta.exchange',
                         api_key=creds['api_key'],
@@ -364,11 +337,8 @@ while True:
                         truncated_api_key = client.api_key[:6] + '...' + client.api_key[-4:]
                         print(f"Client {truncated_api_key}: Skipping order placement due to existing open trades.")
                         sys.stdout.flush()
-                        # Optional: Send Telegram message about skipping due to open trades
-                        # send_telegram_message(f"ℹ️ *Trade Skipped* ℹ️\nClient: `{truncated_api_key}`\nReason: Open trades detected. No new order placed.")
             else:
-                # MODIFIED SECTION: Print indicator values when no signal is detected
-                #print(f"RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
+                print(f"No trade signal | RSI: {latest['rsi']:.0f} (Prev: {latest['Prsi']:.0f}) | Volume: {latest['volume']:.0f} (EMA: {latest['VolEMA']:.0f}) | ADX: {latest['adx']:.0f} | Volume Change: {latest['vol_change'] * 100:.0f}%")
                 sys.stdout.flush()
 
         else:
@@ -377,4 +347,4 @@ while True:
             send_telegram_message(f"❌ *Data Fetch Error!* ❌\nStatus Code: `{r.status_code}`\nResponse: `{r.text}`")
 
 
-        time.sleep(55) # Sleep for almost the rest of the min
+        time.sleep(55) # Sleep for almost the rest of the minute
