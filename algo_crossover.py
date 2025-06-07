@@ -287,7 +287,7 @@ while True:
             elif sell_signal:
                 signal_type = 'sell'
 
-            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
+            print(f"> No signal detected for crossover algo at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
             if signal_type:
