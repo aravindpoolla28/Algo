@@ -4,11 +4,10 @@ import pandas as pd
 import requests
 import datetime
 import pytz # Import pytz for timezone conversion
+from delta_rest_client import DeltaRestClient
 
 # ==== Store all client credentials here ====
-# WARNING: API KEYS AND SECRETS ARE HARDCODED BELOW.
-# THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
-# FOR SECURE DEPLOYMENT, REVERT TO USING GITHUB SECRETS OR A SIMILAR METHOD.
+
 client_credentials = [
     {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
     {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
