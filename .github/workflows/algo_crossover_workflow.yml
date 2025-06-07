@@ -38,7 +38,7 @@ jobs:
 
     - name: Execute Algo Crossover Script
       run: |
-        python algo_crossover.py # <--- Ensuring this runs the NEW script============================================
+        python algo_crossover.py
 
     # Optional: Add steps here for notifications on script completion/failure,
     # or to upload logs if the script exits.
