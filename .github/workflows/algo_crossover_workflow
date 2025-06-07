@@ -5,7 +5,7 @@
 # and then be terminated. For a truly continuous bot, consider a dedicated server,
 # cloud platform, or Docker deployment.
 
-name: Algo Crossover Runner
+name: Algo Crossover Runner # <--- Changed name to be unique!
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  run_algo: # Renamed job to distinguish from previous bot
+  run_algo: # Renamed job to distinguish from previous bot=========================
     runs-on: ubuntu-latest
 
     steps:
@@ -38,7 +38,7 @@ jobs:
 
     - name: Execute Algo Crossover Script
       run: |
-        python algo_crossover.py # This is the key change to run the new script
+        python algo_crossover.py # <--- Ensuring this runs the NEW script============================================
 
     # Optional: Add steps here for notifications on script completion/failure,
     # or to upload logs if the script exits.
