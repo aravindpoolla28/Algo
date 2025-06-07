@@ -33,7 +33,7 @@ RSI_OVERSOLD = 30     # RSI level considered oversold
 TP_RISK_RATIO = 2.5   # Take Profit Risk-Reward Ratio (Adjusted from 5 for potentially more frequent exits)
 SL_PERCENTAGE = 0.01  # 1% Stop Loss (from entry price)
 
-Time_period = '5m'
+Time_period = '15m'
 symbol = 'BTCUSD'
 order_quantity = 1
 
