@@ -29,7 +29,7 @@ PRIMARY_TIMEFRAME = '5m'
 # OTHER_TIMEFRAMES = ['1m', '3m', '15m'] # For logging/future expansion, not currently used for trading logic
 
 symbol = 'BTCUSD'
-order_quantity = 10
+order_quantity = 1
 TP_RISK_RATIO = 2.5 # Take Profit Risk-Reward Ratio (can be adjusted)
 
 
