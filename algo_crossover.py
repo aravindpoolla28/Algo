@@ -6,7 +6,7 @@ import datetime
 from ta.momentum import RSIIndicator as RSI
 from ta.trend import EMAIndicator # Import EMA indicator for calculations
 import pytz # Import pytz for timezone conversion
-from delta_rest_client import DeltaRestClient # <--- ADD THIS LINE HERE
+import os # NEW: Import os to read environment variables
 
 # ==== Store all client credentials here ====
 # WARNING: API KEYS AND SECRETS ARE HARDCODED BELOW.
@@ -34,7 +34,7 @@ RSI_OVERSOLD = 30     # RSI level considered oversold
 TP_RISK_RATIO = 2.5   # Take Profit Risk-Reward Ratio (Adjusted from 5 for potentially more frequent exits)
 SL_PERCENTAGE = 0.01  # 1% Stop Loss (from entry price)
 
-Time_period = '5m'
+Time_period = '5m' # Retained from your previous code, can be changed to '15m' etc.
 symbol = 'BTCUSD'
 order_quantity = 10
 
@@ -288,7 +288,11 @@ while True:
             elif sell_signal:
                 signal_type = 'sell'
 
-            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
+            # NEW: Get the runner's public IP address from environment variables
+            runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP')
+
+            # MODIFIED: Include the IP address in the print statement
+            print(f"> No signal detected for crossover algo at: [{current_ist_time.strftime('%H:%M:%S')}] (IP: {runner_ip})")
             sys.stdout.flush()
 
             if signal_type:
