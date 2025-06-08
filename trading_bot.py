@@ -7,17 +7,21 @@ from ta.momentum import RSIIndicator as RSI
 from ta.trend import ADXIndicator
 from delta_rest_client import DeltaRestClient, OrderType # Ensure this is imported
 import pytz # Import pytz for timezone conversion
-import os # NEW: Import os to read environment variables
+import os # Import os (needed for os.environ.get calls for credentials, even if hardcoded)
 
 # ==== Store all client credentials here ====
-
+# WARNING: API KEYS AND SECRETS ARE HARDCODED BELOW.
+# THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
+# FOR SECURE DEPLOYMENT, REVERT TO USING GITHUB SECRETS OR A SIMILAR METHOD.
 client_credentials = [
     {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
     {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
 ]
 
 # ==== Telegram Bot Configuration ====
-
+# WARNING: TELEGRAM TOKEN AND CHAT ID ARE HARDCODED BELOW.
+# THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
+# FOR SECURE DEPLOYMENT, REVERT TO USING GITHUB SECRETS OR A SIMILAR METHOD.
 TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
 TELEGRAM_CHAT_ID = '-1002715827375'   # Your group chat ID (starts with -)
 
@@ -212,7 +216,7 @@ def place_order(client, side, symbol, size, signal_candle_data):
 
         # Send Telegram notification after successful order placement
         telegram_message = (
-            f"🔔 *TRADE ALERT!* �\n"
+            f"🔔 *TRADE ALERT!* 🔔\n"
             f"Client: `{truncated_api_key}`\n"
             f"Symbol: `{symbol}`\n"
             f"Side: *{side.upper()}*\n"
@@ -307,10 +311,11 @@ while True:
                 time.sleep(55)
                 continue
 
-            # Get the runner's public IP address from environment variables
-            runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP') # NEW: Retrieve IP
+            # Removed the line that fetched the runner's public IP address
+            # runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP')
 
-            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}] (IP: {runner_ip})") # MODIFIED: Include IP
+            # MODIFIED: Removed the IP address from the print statement
+            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
             signal_type = None
