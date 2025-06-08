@@ -7,6 +7,7 @@ from ta.momentum import RSIIndicator as RSI
 from ta.trend import ADXIndicator
 from delta_rest_client import DeltaRestClient, OrderType # Ensure this is imported
 import pytz # Import pytz for timezone conversion
+import os # NEW: Import os to read environment variables
 
 # ==== Store all client credentials here ====
 
@@ -211,7 +212,7 @@ def place_order(client, side, symbol, size, signal_candle_data):
 
         # Send Telegram notification after successful order placement
         telegram_message = (
-            f"🔔 *TRADE ALERT!* 🔔\n"
+            f"🔔 *TRADE ALERT!* �\n"
             f"Client: `{truncated_api_key}`\n"
             f"Symbol: `{symbol}`\n"
             f"Side: *{side.upper()}*\n"
@@ -306,7 +307,10 @@ while True:
                 time.sleep(55)
                 continue
 
-            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
+            # Get the runner's public IP address from environment variables
+            runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP') # NEW: Retrieve IP
+
+            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}] (IP: {runner_ip})") # MODIFIED: Include IP
             sys.stdout.flush()
 
             signal_type = None
