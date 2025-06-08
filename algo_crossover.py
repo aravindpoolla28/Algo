@@ -6,17 +6,21 @@ import datetime
 from ta.momentum import RSIIndicator as RSI
 from ta.trend import EMAIndicator # Import EMA indicator for calculations
 import pytz # Import pytz for timezone conversion
-import os # NEW: Import os to read environment variables
+from delta_rest_client import DeltaRestClient # <--- ADD THIS LINE HERE
 
 # ==== Store all client credentials here ====
-
+# WARNING: API KEYS AND SECRETS ARE HARDCODED BELOW.
+# THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
+# FOR SECURE DEPLOYMENT, REVERT TO USING GITHUB SECRETS OR A SIMILAR METHOD.
 client_credentials = [
     {"api_key": '1nybRkqMUOp5PcUuQFvJptm3jJsZPu', "api_secret": 'zDgaOpt2QDk1HvOxObMKHT46DSOG0RZGQamcNJ0mb62RZx3njAlfjQA3xuob'},
     {"api_key": 'SAeyxviw90fQZaf8z5FLqobdoBx41X', "api_secret": 'AdLiUKLGReg8f7TxaxIY2bahhMMuXMXgSPZUoBBtFsf3I4CtzxDOWJs5zbNL'},
 ]
 
 # ==== Telegram Bot Configuration ====
-
+# WARNING: TELEGRAM TOKEN AND CHAT ID ARE HARDCODED BELOW.
+# THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
+# FOR SECURE DEPLOYMENT, REVERT TO USING GITHUB SECRETS OR A SIMILAR METHOD.
 TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
 TELEGRAM_CHAT_ID = '-1002715827375'   # Your group chat ID (starts with -)
 
@@ -30,9 +34,9 @@ RSI_OVERSOLD = 30     # RSI level considered oversold
 TP_RISK_RATIO = 2.5   # Take Profit Risk-Reward Ratio (Adjusted from 5 for potentially more frequent exits)
 SL_PERCENTAGE = 0.01  # 1% Stop Loss (from entry price)
 
-Time_period = '15m'
+Time_period = '5m'
 symbol = 'BTCUSD'
-order_quantity = 1
+order_quantity = 10
 
 
 # Define the target timezone
@@ -182,7 +186,7 @@ def place_order(client, side, symbol, size, entry_price_estimate, stop_loss_pric
 
         # Send Telegram notification after successful order placement
         telegram_message = (
-            f"🔔 *TRADE ALERT for Crossover Algo Bot!* 🔔\n"
+            f"🔔 *TRADE ALERT!* 🔔\n"
             f"Client: `{truncated_api_key}`\n"
             f"Symbol: `{symbol}`\n"
             f"Side: *{side.upper()}*\n"
@@ -224,7 +228,7 @@ while True:
     if int(cmin) % 1 == 0 and int(csec) == 6:
         sys.stdout.flush()
 
-        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+        yesterday = datetime.date.today() - datetime.timedelta(days=2) # Ensure enough history for EMAs
         start_date = datetime.datetime.combine(yesterday, datetime.time(0, 0, 0))
         start_timestamp = int(pytz.utc.localize(start_date).timestamp())
         end_timestamp = int(datetime.datetime.now(pytz.utc).timestamp())
@@ -284,11 +288,7 @@ while True:
             elif sell_signal:
                 signal_type = 'sell'
 
-            # NEW: Get the runner's public IP address from environment variables
-            runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP')
-
-            # MODIFIED: Include the IP address in the print statement
-            print(f"> No signal detected for crossover algo at: [{current_ist_time.strftime('%H:%M:%S')}] (IP: {runner_ip})")
+            print(f"> No signal detected at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
             if signal_type:
@@ -310,10 +310,7 @@ while True:
                     take_profit_price = entry_price - (risk_points * TP_RISK_RATIO)
 
                 # Ensure risk_points is positive for calculation
-                # This fallback should ideally not be needed with percentage-based SL,
-                # but kept for robustness.
                 if risk_points <= 0:
-                    # Fallback to a tiny fixed percentage if calculated risk is zero or negative (unlikely with percentage SL)
                     risk_points = entry_price * 0.001
                     if signal_type == 'buy':
                         stop_loss_price = entry_price - risk_points
@@ -338,8 +335,6 @@ while True:
                         print(f"Client {truncated_api_key}: Skipping order placement due to existing open trades.")
                         sys.stdout.flush()
             else:
-                # This block is now intentionally empty as per your request
-                # Only the "> No signal detected at: [HH:MM:SS]" line will print
                 pass
                 sys.stdout.flush()
 
