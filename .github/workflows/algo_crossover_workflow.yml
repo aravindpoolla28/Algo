@@ -5,7 +5,7 @@
 # and then be terminated. For a truly continuous bot, consider a dedicated server,
 # cloud platform, or Docker deployment.
 
-name: Algo Crossover Runner # <--- Changed name to be unique!
+name: Algo Crossover Runner # <--- Unique name for this workflow
 
 on:
   push:
@@ -17,12 +17,27 @@ permissions:
   contents: read
 
 jobs:
-  run_algo: # Renamed job to distinguish from previous bot=========================
+  run_algo: # Unique job name
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository code
       uses: actions/checkout@v4
+
+    # NEW STEP: Get and print the public IP address of the runner
+    # We now set the output to a file that GITHUB_OUTPUT action can read,
+    # and expose it as an environment variable to subsequent steps.
+    - name: Get Runner Public IP
+      id: get_ip # Assign an ID to this step to reference its outputs
+      run: |
+        echo "Fetching runner's public IP address..."
+        PUBLIC_IP=$(curl -s ifconfig.me) # Using ifconfig.me for simplicity
+        echo "ip_address=$PUBLIC_IP" >> "$GITHUB_OUTPUT" # Modern way to set step output
+        echo "--------------------------------------------------------"
+        echo "❗❗ Runner Public IP Address: $PUBLIC_IP ❗❗"
+        echo "--------------------------------------------------------"
+        echo "Please ensure this IP is whitelisted on your exchange."
+        echo "--------------------------------------------------------"
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
@@ -37,8 +52,11 @@ jobs:
         pip install delta_rest_client # Assuming it's pip-installable.
 
     - name: Execute Algo Crossover Script
+      # Pass the IP from the previous step as an environment variable to the Python script
+      env:
+        RUNNER_PUBLIC_IP: ${{ steps.get_ip.outputs.ip_address }} # Reference the output by step ID
       run: |
-        python algo_crossover.py
+        python algo_crossover.py # This runs the NEW script
 
     # Optional: Add steps here for notifications on script completion/failure,
     # or to upload logs if the script exits.
