@@ -288,11 +288,11 @@ while True:
             elif sell_signal:
                 signal_type = 'sell'
 
-            # NEW: Get the runner's public IP address from environment variables
-            runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP')
+            # Removed the line that fetched the runner's public IP address
+            # runner_ip = os.environ.get('RUNNER_PUBLIC_IP', 'UNKNOWN_IP')
 
-            # MODIFIED: Include the IP address in the print statement
-            print(f"> No signal detected for crossover algo at: [{current_ist_time.strftime('%H:%M:%S')}] (IP: {runner_ip})")
+            # MODIFIED: Removed the IP address from the print statement
+            print(f"> No signal detected for crossover algo at: [{current_ist_time.strftime('%H:%M:%S')}]")
             sys.stdout.flush()
 
             if signal_type:
