@@ -320,7 +320,7 @@ def calculate_gamma_exposure():
         # Prepare the caption
         caption = (
             #f"BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n"
-            f"Net GEX: {total_net_gex:,.0f} BTC\n"
+            f"Net GEX: {total_net_gex:,.0f}"
             
         )
 
