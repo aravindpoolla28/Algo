@@ -48,7 +48,7 @@ def get_greeks_and_oi(instrument_name):
     url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_or_status()
+        response.raise_for_status()
         result = response.json()["result"]
         if "greeks" in result and "gamma" in result["greeks"] and "open_interest" in result:
             return {
