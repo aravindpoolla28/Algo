@@ -36,4 +36,4 @@ jobs:
 
     - name: Run Python script
       run: |
-        python your_script_name.py # <--- IMPORTANT: REPLACE THIS with the actual name of your Python script (e.g., gex_monitor.py or your new script's name)
+        python gex_chart_generator.py # <--- IMPORTANT: REPLACE THIS with the actual name of your Python script (e.g., gex_monitor.py or your new script's name)
