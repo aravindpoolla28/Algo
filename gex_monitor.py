@@ -319,9 +319,9 @@ def calculate_gamma_exposure():
         
         # Prepare the caption
         caption = (
-            f"BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n"
-            f"Total Net GEX (within ±{PRICE_RANGE_POINTS} range): {total_net_gex:,.0f} BTC\n"
-            f"Generated at: {current_time_hhmm} IST"
+            #f"BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n"
+            f"Net GEX: {total_net_gex:,.0f} BTC\n"
+            
         )
 
         with open(temp_filepath, 'rb') as photo_file:
