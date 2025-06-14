@@ -266,8 +266,9 @@ def calculate_gamma_exposure():
         s3 = boto3.client('s3')
         bucket_name = 'gex-charts-mybitcoin' # <<< THIS IS YOUR SUGGESTED BUCKET NAME
         s3.upload_file(temp_filepath, bucket_name, output_filename,
-                       ExtraArgs={'ContentType': 'image/png', 'ACL': 'public-read'}) # Make it publicly readable
-
+                       #ExtraArgs={'ContentType': 'image/png', 'ACL': 'public-read'}) # Make it publicly readable
+                       ExtraArgs={'ContentType': 'image/png'})
+        
         print(f"Plot saved locally to {temp_filepath} and uploaded to S3: s3://{bucket_name}/{output_filename}")
         os.remove(temp_filepath) # Clean up local temporary file
         # --- END S3 Upload ---
