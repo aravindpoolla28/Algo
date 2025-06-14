@@ -1,4 +1,4 @@
-import sys # Import sys for flushing output
+mport sys # Import sys for flushing output
 import time # Import time for time.localtime() and time.sleep()
 import pandas as pd
 import requests
