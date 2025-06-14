@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
 import matplotlib.pyplot as plt
 import pytz # For timezone handling
+import boto3 # NEW: For S3 upload
 
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
@@ -23,6 +24,34 @@ IST = pytz.timezone('Asia/Kolkata')
 # export TELEGRAM_CHAT_ID="YOUR_ACTUAL_CHAT_ID"
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+
+# --- S3 Configuration ---
+S3_BUCKET_NAME = "gex-charts-mybitcoin" # Your specified S3 bucket
+LATEST_CHART_KEY = "latest_gex_chart.png" # The file to be overwritten on S3 for the website
+
+# --- S3 Upload Helper Function (NEW) ---
+def upload_to_s3(file_name, bucket, object_name=None):
+    """Upload a file to an S3 bucket
+
+    :param file_name: File to upload
+    :param bucket: Bucket to upload to
+    :param object_name: S3 object name. If not specified then file_name is used
+    :return: True if file was uploaded, else False
+    """
+    if object_name is None:
+        object_name = os.path.basename(file_name)
+
+    s3_client = boto3.client('s3')
+    try:
+        s3_client.upload_file(file_name, bucket, object_name,
+                               ExtraArgs={'ContentType': 'image/png'}) # Specify content type
+        print(f"File {file_name} uploaded to s3://{bucket}/{object_name}")
+    except Exception as e:
+        print(f"Error uploading file to S3: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    return True
 
 # --- API Interaction Functions ---
 def get_current_price():
@@ -201,7 +230,7 @@ def calculate_gamma_exposure():
 
     # Sort strikes and prepare data for plotting
     sorted_strikes = sorted(net_gex_map.keys())
-    gex_values = [net_gex_map[s] for s in sorted_strikes]
+    gex_values = [net_gex_map[s] for s in sorted_strikes] # Corrected 'sorted_gex_map.keys()' to 'sorted_strikes'
 
     # Calculate Total Net GEX from the *filtered* values
     total_net_gex = sum(gex_values)
@@ -240,7 +269,7 @@ def calculate_gamma_exposure():
     print("=" * 50)
 
 
-    # --- Matplotlib Charting & Telegram Send Logic ---
+    # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
     output_filename = "current_gex_chart.png" # Just a temporary name for saving locally before sending
     temp_filepath = os.path.join(temp_dir, output_filename)
@@ -285,6 +314,7 @@ def calculate_gamma_exposure():
         print(f"Plot saved locally to: {temp_filepath}")
         plt.close() # Close the plot after saving to free memory
 
+        # --- Telegram Send Logic ---
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         
         # Prepare the caption
@@ -303,8 +333,12 @@ def calculate_gamma_exposure():
             
             print(f"Chart sent to Telegram. Response: {response.json()}")
 
+        # --- S3 Upload Logic (NEW) ---
+        print(f"Uploading chart to S3 bucket: {S3_BUCKET_NAME}...")
+        upload_to_s3(temp_filepath, S3_BUCKET_NAME, LATEST_CHART_KEY)
+
     except Exception as e:
-        print(f"Error generating plot or sending to Telegram: {e}")
+        print(f"Error generating plot, sending to Telegram, or uploading to S3: {e}")
         import traceback
         traceback.print_exc() # Print full traceback for debugging
     finally:
@@ -315,8 +349,6 @@ def calculate_gamma_exposure():
 
     print("Data collection cycle completed successfully.")
     print("==================================================")
-    # The cron job handles the 5-minute wait, no need for time.sleep here
-    # print("Waiting 5 minutes for next update...\n")
 
 
 # === Run Loop ===
