@@ -201,7 +201,7 @@ def calculate_gamma_exposure():
 
     # Sort strikes and prepare data for plotting
     sorted_strikes = sorted(net_gex_map.keys())
-    gex_values = [net_gex_map[s] for s in sorted_gex_map.keys()]
+    gex_values = [net_gex_map[s] for s in sorted_strikes]
 
     # Calculate Total Net GEX from the *filtered* values
     total_net_gex = sum(gex_values)
