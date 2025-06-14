@@ -18,7 +18,7 @@ def get_current_price():
     url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_or_status()
+        response.raise_for_status()
         data = response.json()
         if data and "result" in data and "index_price" in data["result"]:
             return float(data["result"]["index_price"])
