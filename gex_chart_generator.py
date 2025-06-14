@@ -7,6 +7,7 @@ import matplotlib
 matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
 import matplotlib.pyplot as plt
 import boto3 # Added for S3 upload
+import pytz
 
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
@@ -82,8 +83,10 @@ def format_ts_to_label(ts_ms):
 # --- Main Logic ---
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_ist = now_utc.astimezone(IST)
     print("Beginning new data collection cycle...")
-    print("Fetching data at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z"))
+    print("Fetching data at", now.ist.strftime("%Y-%m-%d %H %M:%S %Z"))
 
     price = get_current_price()
     if price is None:
@@ -213,6 +216,8 @@ def calculate_gamma_exposure():
 
 
     # --- Matplotlib Charting & S3 Upload ---
+    current_time_hhmm= now_ist.strftime('%H:%M')
+    
     try:
         print("Generating and saving chart...")
         plt.figure(figsize=(12, 7)) 
