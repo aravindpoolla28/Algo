@@ -5,7 +5,7 @@
 # and then be terminated. For a truly continuous bot, consider a dedicated server,
 # cloud platform, or Docker deployment.
 
-name: Algo Crossover Runner # <--- Unique name for this workflow
+ame: Algo Crossover Runner # <--- Unique name for this workflow
 
 on:
   push:
