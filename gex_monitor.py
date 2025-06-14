@@ -7,18 +7,22 @@ import matplotlib
 matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
 import matplotlib.pyplot as plt
 import boto3 # For S3 upload
+import pytz # For timezone handling
 
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
 HEADERS = {"Accept": "application/json"}
 PRICE_RANGE_POINTS = 6000 # Define the range around the current price
 
+# Define the Indian Standard Time timezone
+IST = pytz.timezone('Asia/Kolkata')
+
 # --- API Interaction Functions ---
 def get_current_price():
     url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
+        response.raise_for_status() # Corrected here
         data = response.json()
         if data and "result" in data and "index_price" in data["result"]:
             return float(data["result"]["index_price"])
@@ -33,7 +37,7 @@ def get_instruments():
     url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
+        response.raise_for_status() # Corrected here
         data = response.json()
         if data and "result" in data and isinstance(data["result"], list):
             return data["result"]
@@ -87,7 +91,13 @@ def format_ts_to_label(ts_ms):
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
     print("Beginning new data collection cycle...")
-    print("Fetching data at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z"))
+    
+    # Get current UTC time (system time on EC2/GitHub Actions)
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    # Convert to IST for display
+    now_ist = now_utc.astimezone(IST)
+
+    print("Fetching data at", now_ist.strftime("%Y-%m-%d %H:%M:%S %Z"))
 
     price = get_current_price()
     if price is None:
@@ -183,8 +193,8 @@ def calculate_gamma_exposure():
     # Calculate Total Net GEX from the *filtered* values
     total_net_gex = sum(gex_values)
     
-    # Get current local timestamp (HH:MM)
-    current_time_hhmm = datetime.datetime.now().strftime('%H:%M')
+    # Get current local timestamp (HH:MM) - Using IST
+    current_time_hhmm = now_ist.strftime('%H:%M')
 
     # Identify key strikes for labels (from the *filtered* map)
     max_gex_strike = None
@@ -217,13 +227,12 @@ def calculate_gamma_exposure():
     print("=" * 50)
 
 
-    # --- Matplotlib Charting ---
+    # --- Matplotlib Charting & S3 Upload ---
     try:
         print("Generating and saving chart...")
         plt.figure(figsize=(12, 7)) 
         
         # Use filtered sorted_strikes and gex_values for the bars
-        # Handle case where there's only one strike to avoid min() on empty sequence
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
         bars = plt.bar(sorted_strikes, gex_values, width=bar_width, color='skyblue')
 
@@ -254,24 +263,41 @@ def calculate_gamma_exposure():
         # --- Simplified info_text and increased font size ---
         info_text = f"gex: {total_net_gex:,.0f} at {current_time_hhmm}"
         plt.figtext(0.5, 0.01, info_text, ha="center", fontsize=25, bbox={"facecolor":"white", "alpha":0.8, "pad":5})
-        # --- END MODIFIED ---
 
-        output_filename = "latest_gex_chart.png" # Consistent filename
-        temp_filepath = f"/tmp/{output_filename}" # Save to a temporary directory on the EC2 instance
-
-        plt.savefig(temp_filepath)
-        plt.close() # Close the plot to free memory
-
-        # --- S3 Upload ---
+        # --- S3 Upload Logic (Combined for Historical and Latest) ---
         s3 = boto3.client('s3')
-        bucket_name = 'gex-charts-mybitcoin' # <<< THIS IS YOUR SUGGESTED BUCKET NAME
-        s3.upload_file(temp_filepath, bucket_name, output_filename,
-                       #ExtraArgs={'ContentType': 'image/png', 'ACL': 'public-read'}) # Make it publicly readable
-                       ExtraArgs={'ContentType': 'image/png'})
+        bucket_name = 'gex-charts-mybitcoin' 
+        temp_dir = "/tmp" # Standard temporary directory on Linux systems (EC2, GitHub Actions)
+
+        # 1. Prepare and save the plot with a UNIQUE, TIMESTAMPED filename (for historical records)
+        timestamp_str = now_utc.strftime('%Y%m%d_%H%M%S') # Using UTC for the filename for global consistency
+        historical_filename = f"gex_chart_{timestamp_str}.png" 
+        historical_temp_filepath = os.path.join(temp_dir, historical_filename)
+
+        plt.savefig(historical_temp_filepath) # Save the plot to the temporary path for historical file
+        print(f"Plot saved locally for historical record: {historical_temp_filepath}")
+
+        # Upload the timestamped file to S3
+        s3.upload_file(historical_temp_filepath, bucket_name, historical_filename,
+                       ExtraArgs={'ContentType': 'image/png'}) # No ACL needed, bucket policy handles public read
+        print(f"Historical plot uploaded to S3: s3://{bucket_name}/{historical_filename}")
+        os.remove(historical_temp_filepath) # Clean up local temporary file
+
+        # 2. Prepare and save the plot with a FIXED filename (for the website's latest view)
+        latest_filename = "latest_gex_chart.png" # This is the fixed filename your website uses
+        latest_temp_filepath = os.path.join(temp_dir, latest_filename)
+
+        # Re-save the current plot to the 'latest' temporary path.
+        plt.savefig(latest_temp_filepath) 
+        print(f"Plot saved locally for latest view: {latest_temp_filepath}")
+
+        # Upload the 'latest' file to S3 (this will OVERWRITE the previous 'latest_gex_chart.png')
+        s3.upload_file(latest_temp_filepath, bucket_name, latest_filename,
+                       ExtraArgs={'ContentType': 'image/png'}) # No ACL needed
+        print(f"Latest plot uploaded to S3: s3://{bucket_name}/{latest_filename} (OVERWRITTEN)")
+        os.remove(latest_temp_filepath) # Clean up local temporary file
         
-        print(f"Plot saved locally to {temp_filepath} and uploaded to S3: s3://{bucket_name}/{output_filename}")
-        os.remove(temp_filepath) # Clean up local temporary file
-        # --- END S3 Upload ---
+        plt.close() # Close the plot to free memory after both saves
 
         print("Data collection cycle completed successfully.")
 
@@ -284,22 +310,23 @@ def calculate_gamma_exposure():
     print("Waiting 5 minutes for next update...\n")
 
 # === Run Loop ===
-# This script will be run by cron, so the infinite loop is not needed here.
-# If you want to test it once manually, you can call the function:
-# calculate_gamma_exposure()
-
-# Remove or comment out the while loop if this script will be run via cron
-# while True:
-#     try:
-#         calculate_gamma_exposure()
-#     except Exception as e:
-#         print(f"An unhandled error occurred in main loop: {e}")
-#         import traceback
-#         traceback.print_exc()
-#         print("Main loop encountered an unhandled error. Restarting cycle after wait.")
-#     time.sleep(5 * 60) # Runs every 5 minutes
-
-# When running with cron, the script will simply execute and exit.
-# So, for cron, uncomment the single function call below and comment out the while True loop above.
+# This script is designed to be run by cron on EC2.
+# The infinite loop should be used only if you are running it manually
+# and want it to loop within the same process.
+# For cron, you call the function once, and cron handles the scheduling.
 if __name__ == "__main__":
+    # If running via cron, ensure this is the only call to the function.
+    # If running manually for continuous loop, uncomment the while True block below.
     calculate_gamma_exposure()
+
+    # --- OPTIONAL: Uncomment this if you want the script to loop continuously
+    # ---           when run manually (NOT recommended for cron)
+    # while True:
+    #     try:
+    #         calculate_gamma_exposure()
+    #     except Exception as e:
+    #         print(f"An unhandled error occurred in main loop: {e}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         print("Main loop encountered an unhandled error. Restarting cycle after wait.")
+    #     time.sleep(5 * 60) # Runs every 5 minutes
