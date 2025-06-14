@@ -6,7 +6,6 @@ import os
 import matplotlib
 matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
 import matplotlib.pyplot as plt
-import boto3 # For S3 upload
 import pytz # For timezone handling
 
 # --- Configuration ---
@@ -17,12 +16,20 @@ PRICE_RANGE_POINTS = 6000 # Define the range around the current price
 # Define the Indian Standard Time timezone
 IST = pytz.timezone('Asia/Kolkata')
 
+# --- Telegram Configuration ---
+# These variables should be set as environment variables on your EC2 instance for security.
+# Example in your crontab -e file:
+# export TELEGRAM_BOT_TOKEN="YOUR_ACTUAL_BOT_TOKEN"
+# export TELEGRAM_CHAT_ID="YOUR_ACTUAL_CHAT_ID"
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+
 # --- API Interaction Functions ---
 def get_current_price():
     url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status() # Corrected here
+        response.raise_for_status()
         data = response.json()
         if data and "result" in data and "index_price" in data["result"]:
             return float(data["result"]["index_price"])
@@ -37,7 +44,7 @@ def get_instruments():
     url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_for_status() # Corrected here
+        response.raise_for_status()
         data = response.json()
         if data and "result" in data and isinstance(data["result"], list):
             return data["result"]
@@ -99,6 +106,13 @@ def calculate_gamma_exposure():
 
     print("Fetching data at", now_ist.strftime("%Y-%m-%d %H:%M:%S %Z"))
 
+    # Check Telegram credentials at the start of the function as well
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variables are not set. Cannot send to Telegram.")
+        print("Please set them on your EC2 instance (e.g., in crontab -e).")
+        print("Cycle completed with errors.")
+        return # Exit if Telegram credentials are not configured
+
     price = get_current_price()
     if price is None:
         print("Failed to get current BTC price. Skipping this iteration.")
@@ -111,7 +125,6 @@ def calculate_gamma_exposure():
     lower_strike_bound = price - PRICE_RANGE_POINTS
     upper_strike_bound = price + PRICE_RANGE_POINTS
     print(f"Filtering strikes between {lower_strike_bound:,.0f} and {upper_strike_bound:,.0f} (±{PRICE_RANGE_POINTS} from current price)")
-    # --- END ADDED ---
 
     instruments = get_instruments()
     if not instruments:
@@ -139,7 +152,7 @@ def calculate_gamma_exposure():
         print("Cycle completed with errors.")
         return
 
-    # --- MODIFIED: Filter relevant_options by price range ---
+    # Filter relevant_options by price range
     relevant_options_filtered_by_price = [
         i for i in relevant_options_all_strikes
         if lower_strike_bound <= i["strike"] <= upper_strike_bound
@@ -153,7 +166,7 @@ def calculate_gamma_exposure():
     print(f"\nProcessing {len(relevant_options_filtered_by_price)} options for {expiry_label} expiry within price range...\n")
 
     strike_map = {}
-    for instr in relevant_options_filtered_by_price: # Use the filtered list here
+    for instr in relevant_options_filtered_by_price:
         instrument_name = instr["instrument_name"]
         
         data = get_greeks_and_oi(instrument_name)
@@ -188,7 +201,7 @@ def calculate_gamma_exposure():
 
     # Sort strikes and prepare data for plotting
     sorted_strikes = sorted(net_gex_map.keys())
-    gex_values = [net_gex_map[s] for s in sorted_strikes]
+    gex_values = [net_gex_map[s] for s in sorted_gex_map.keys()]
 
     # Calculate Total Net GEX from the *filtered* values
     total_net_gex = sum(gex_values)
@@ -223,13 +236,17 @@ def calculate_gamma_exposure():
 
     print("\n" + "=" * 50)
     print(f"TOTAL NET GEX (within ±{PRICE_RANGE_POINTS} range): {total_net_gex:,.0f} BTC")
-    print(f"Generated at: {current_time_hhmm}")
+    print(f"Generated at: {current_time_hhmm} IST")
     print("=" * 50)
 
 
-    # --- Matplotlib Charting & S3 Upload ---
+    # --- Matplotlib Charting & Telegram Send Logic ---
+    temp_dir = "/tmp"
+    output_filename = "current_gex_chart.png" # Just a temporary name for saving locally before sending
+    temp_filepath = os.path.join(temp_dir, output_filename)
+
     try:
-        print("Generating and saving chart...")
+        print("Generating and saving chart locally...")
         plt.figure(figsize=(12, 7)) 
         
         # Use filtered sorted_strikes and gex_values for the bars
@@ -261,72 +278,50 @@ def calculate_gamma_exposure():
         plt.tight_layout()
 
         # --- Simplified info_text and increased font size ---
-        info_text = f"gex: {total_net_gex:,.0f} at {current_time_hhmm}"
+        info_text = f"gex: {total_net_gex:,.0f} at {current_time_hhmm} IST"
         plt.figtext(0.5, 0.01, info_text, ha="center", fontsize=25, bbox={"facecolor":"white", "alpha":0.8, "pad":5})
 
-        # --- S3 Upload Logic (Combined for Historical and Latest) ---
-        s3 = boto3.client('s3')
-        bucket_name = 'gex-charts-mybitcoin' 
-        temp_dir = "/tmp" # Standard temporary directory on Linux systems (EC2, GitHub Actions)
+        plt.savefig(temp_filepath) # Save the plot temporarily to file
+        print(f"Plot saved locally to: {temp_filepath}")
+        plt.close() # Close the plot after saving to free memory
 
-        # 1. Prepare and save the plot with a UNIQUE, TIMESTAMPED filename (for historical records)
-        timestamp_str = now_utc.strftime('%Y%m%d_%H%M%S') # Using UTC for the filename for global consistency
-        historical_filename = f"gex_chart_{timestamp_str}.png" 
-        historical_temp_filepath = os.path.join(temp_dir, historical_filename)
-
-        plt.savefig(historical_temp_filepath) # Save the plot to the temporary path for historical file
-        print(f"Plot saved locally for historical record: {historical_temp_filepath}")
-
-        # Upload the timestamped file to S3
-        s3.upload_file(historical_temp_filepath, bucket_name, historical_filename,
-                       ExtraArgs={'ContentType': 'image/png'}) # No ACL needed, bucket policy handles public read
-        print(f"Historical plot uploaded to S3: s3://{bucket_name}/{historical_filename}")
-        os.remove(historical_temp_filepath) # Clean up local temporary file
-
-        # 2. Prepare and save the plot with a FIXED filename (for the website's latest view)
-        latest_filename = "latest_gex_chart.png" # This is the fixed filename your website uses
-        latest_temp_filepath = os.path.join(temp_dir, latest_filename)
-
-        # Re-save the current plot to the 'latest' temporary path.
-        plt.savefig(latest_temp_filepath) 
-        print(f"Plot saved locally for latest view: {latest_temp_filepath}")
-
-        # Upload the 'latest' file to S3 (this will OVERWRITE the previous 'latest_gex_chart.png')
-        s3.upload_file(latest_temp_filepath, bucket_name, latest_filename,
-                       ExtraArgs={'ContentType': 'image/png'}) # No ACL needed
-        print(f"Latest plot uploaded to S3: s3://{bucket_name}/{latest_filename} (OVERWRITTEN)")
-        os.remove(latest_temp_filepath) # Clean up local temporary file
+        telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         
-        plt.close() # Close the plot to free memory after both saves
+        # Prepare the caption
+        caption = (
+            f"BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n"
+            f"Total Net GEX (within ±{PRICE_RANGE_POINTS} range): {total_net_gex:,.0f} BTC\n"
+            f"Generated at: {current_time_hhmm} IST"
+        )
 
-        print("Data collection cycle completed successfully.")
+        with open(temp_filepath, 'rb') as photo_file:
+            files = {'photo': photo_file}
+            data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
+            print("Sending chart to Telegram...")
+            response = requests.post(telegram_url, files=files, data=data)
+            response.raise_for_status() # Raise an exception for HTTP errors
+            
+            print(f"Chart sent to Telegram. Response: {response.json()}")
 
     except Exception as e:
-        print(f"Error generating plot or uploading to S3: {e}")
+        print(f"Error generating plot or sending to Telegram: {e}")
         import traceback
-        traceback.print_exc()
-        print("Cycle completed with errors.")
+        traceback.print_exc() # Print full traceback for debugging
+    finally:
+        # Clean up the local temporary file
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+            print(f"Cleaned up temporary file: {temp_filepath}")
 
-    print("Waiting 5 minutes for next update...\n")
+    print("Data collection cycle completed successfully.")
+    print("==================================================")
+    # The cron job handles the 5-minute wait, no need for time.sleep here
+    # print("Waiting 5 minutes for next update...\n")
+
 
 # === Run Loop ===
 # This script is designed to be run by cron on EC2.
-# The infinite loop should be used only if you are running it manually
-# and want it to loop within the same process.
-# For cron, you call the function once, and cron handles the scheduling.
+# The `if __name__ == "__main__":` block ensures calculate_gamma_exposure() is called once
+# when the script is executed. Cron will handle the repeated execution.
 if __name__ == "__main__":
-    # If running via cron, ensure this is the only call to the function.
-    # If running manually for continuous loop, uncomment the while True block below.
     calculate_gamma_exposure()
-
-    # --- OPTIONAL: Uncomment this if you want the script to loop continuously
-    # ---           when run manually (NOT recommended for cron)
-    # while True:
-    #     try:
-    #         calculate_gamma_exposure()
-    #     except Exception as e:
-    #         print(f"An unhandled error occurred in main loop: {e}")
-    #         import traceback
-    #         traceback.print_exc()
-    #         print("Main loop encountered an unhandled error. Restarting cycle after wait.")
-    #     time.sleep(5 * 60) # Runs every 5 minutes
