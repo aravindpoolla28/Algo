@@ -33,7 +33,7 @@ def get_instruments():
     url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
     try:
         response = requests.get(url, headers=HEADERS)
-        response.raise_or_status()
+        response.raise_for_status()
         data = response.json()
         if data and "result" in data and isinstance(data["result"], list):
             return data["result"]
