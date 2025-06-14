@@ -1,0 +1,39 @@
+name: BTC GEX Chart Uploader
+
+on:
+  schedule:
+    # Runs every 15 minutes
+    # M H D M W
+    # The cron schedule uses UTC time.
+    # For example: '0,15,30,45 * * * *' would run at :00, :15, :30, :45 past every hour UTC.
+    - cron: '*/15 * * * *' # Runs every 15 minutes
+  workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x' # Use a recent Python 3 version
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests matplotlib boto3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-south-1 # <--- IMPORTANT: REPLACE THIS with your S3 bucket's region
+
+    - name: Run Python script
+      run: |
+        python your_script_name.py # <--- IMPORTANT: REPLACE THIS with the actual name of your Python script (e.g., gex_monitor.py or your new script's name)
