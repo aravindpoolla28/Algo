@@ -90,6 +90,17 @@ def get_greeks_and_oi(instrument_name):
         print(f"API Error: Unexpected JSON structure for {instrument_name}. Full response: {response.json()}")
         return None
 
+def get_option_ticker(instrument_name):
+    url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+        result = response.json()["result"]
+        return result
+    except Exception as e:
+        print(f"Error fetching ticker for {instrument_name}: {e}")
+        return None
+
 def get_next_expiry(instruments):
     now_utc = datetime.datetime.now(datetime.timezone.utc)
     today_8am_utc = now_utc.replace(hour=8, minute=0, second=0, microsecond=0)
@@ -116,6 +127,26 @@ def above_below_text(strike, price, label, show_points=True, show_value=False):
     if show_value:
         parts.append(f"({strike:,.0f})")
     return " ".join(parts)
+
+def get_straddle_premium(instruments, price, expiry_ts):
+    # Find strikes closest to ATM for CALL and PUT for the next expiry
+    atm_strike = min(set(i["strike"] for i in instruments if i["expiration_timestamp"] == expiry_ts),
+                     key=lambda x: abs(x - price))
+    # Find both call and put instruments for this strike and expiry
+    call_inst = next((i for i in instruments if i["expiration_timestamp"] == expiry_ts and i["strike"] == atm_strike and i["option_type"] == "call"), None)
+    put_inst = next((i for i in instruments if i["expiration_timestamp"] == expiry_ts and i["strike"] == atm_strike and i["option_type"] == "put"), None)
+    if not call_inst or not put_inst:
+        return None, None, None
+    call_ticker = get_option_ticker(call_inst["instrument_name"])
+    put_ticker = get_option_ticker(put_inst["instrument_name"])
+    if not call_ticker or not put_ticker:
+        return None, None, None
+    call_ask = call_ticker.get("ask_price", None)
+    put_ask = put_ticker.get("ask_price", None)
+    if call_ask is None or put_ask is None:
+        return None, None, None
+    straddle = call_ask + put_ask
+    return straddle, call_ask, put_ask, atm_strike
 
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
@@ -224,19 +255,24 @@ def calculate_gamma_exposure():
     # Find the three largest GEX strikes by absolute value (positive or negative)
     largest_gex_strikes = sorted(net_gex_map.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
     strikes_top3 = [s for s, gex in largest_gex_strikes]
-
-    # Check if all three are above or below price
     if len(strikes_top3) == 3:
         all_above = all(s > price for s in strikes_top3)
         all_below = all(s < price for s in strikes_top3)
         if all_above:
-            signal = "✅BUY"
+            signal = "BUY"
         elif all_below:
-            signal = "✅SELL"
+            signal = "SELL"
         else:
-            #signal = "🚫NO TRADE"
+            signal = "NO TRADE"
     else:
-        #signal = "🚫NO TRADE"
+        signal = "NO TRADE"
+
+    # --- Straddle Premium Calculation ---
+    straddle, call_ask, put_ask, atm_strike = get_straddle_premium(instruments, price, target_expiry_ts)
+    if straddle is not None:
+        straddle_caption = f"Straddle premium (ATM {atm_strike:,.0f}): {straddle:.2f} (Call: {call_ask:.2f}, Put: {put_ask:.2f})"
+    else:
+        straddle_caption = "Straddle premium: N/A"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -265,7 +301,7 @@ def calculate_gamma_exposure():
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
         plt.title('BTC GEX for next expiry', fontsize=14)
         plt.xlabel('Strike Price', fontsize=12)
-        plt.ylabel('Net Gamma Exposure', fontsize=12)
+        plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
         plt.grid(axis='y', linestyle='--', alpha=0.7)
         plt.legend()
@@ -276,14 +312,15 @@ def calculate_gamma_exposure():
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        caption += f"{signal}\n"
+        caption += f"{signal} SIGNAL\n"
+        caption += straddle_caption + "\n"
         if largest_gex_strike is not None and price is not None:
             caption += above_below_text(largest_gex_strike, price, "largest gex", show_points=True, show_value=False) + "\n"
-        #if min_gex_strike is not None and price is not None:
-            #caption += above_below_text(min_gex_strike, price, f"Min GEX ({min_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
-        #if max_gex_strike is not None and price is not None:
-            #caption += above_below_text(max_gex_strike, price, f"Max GEX ({max_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
-        #caption += f"Generated at: {current_time_hhmm} IST"
+        if min_gex_strike is not None and price is not None:
+            caption += above_below_text(min_gex_strike, price, f"Min GEX ({min_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
+        if max_gex_strike is not None and price is not None:
+            caption += above_below_text(max_gex_strike, price, f"Max GEX ({max_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
+        caption += f"Generated at: {current_time_hhmm} IST"
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
