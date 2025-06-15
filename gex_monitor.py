@@ -283,7 +283,7 @@ def calculate_gamma_exposure():
             #caption += above_below_text(min_gex_strike, price, f"Min GEX ({min_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
         #if max_gex_strike is not None and price is not None:
             #caption += above_below_text(max_gex_strike, price, f"Max GEX ({max_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
-        caption += f"Generated at: {current_time_hhmm} IST"
+        #caption += f"Generated at: {current_time_hhmm} IST"
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
