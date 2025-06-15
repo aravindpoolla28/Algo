@@ -136,15 +136,15 @@ def get_straddle_premium(instruments, price, expiry_ts):
     call_inst = next((i for i in instruments if i["expiration_timestamp"] == expiry_ts and i["strike"] == atm_strike and i["option_type"] == "call"), None)
     put_inst = next((i for i in instruments if i["expiration_timestamp"] == expiry_ts and i["strike"] == atm_strike and i["option_type"] == "put"), None)
     if not call_inst or not put_inst:
-        return None, None, None
+        return None, None, None, None
     call_ticker = get_option_ticker(call_inst["instrument_name"])
     put_ticker = get_option_ticker(put_inst["instrument_name"])
     if not call_ticker or not put_ticker:
-        return None, None, None
+        return None, None, None, None
     call_ask = call_ticker.get("ask_price", None)
     put_ask = put_ticker.get("ask_price", None)
     if call_ask is None or put_ask is None:
-        return None, None, None
+        return None, None, None, None
     straddle = call_ask + put_ask
     return straddle, call_ask, put_ask, atm_strike
 
@@ -252,20 +252,20 @@ def calculate_gamma_exposure():
         largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
 
     # --- Trade Signal Logic ---
-    # Find the three largest GEX strikes by absolute value (positive or negative)
     largest_gex_strikes = sorted(net_gex_map.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
     strikes_top3 = [s for s, gex in largest_gex_strikes]
+
     if len(strikes_top3) == 3:
         all_above = all(s > price for s in strikes_top3)
         all_below = all(s < price for s in strikes_top3)
         if all_above:
-            signal = "BUY"
+            signal = "✅BUY"
         elif all_below:
-            signal = "SELL"
+            signal = "✅SELL"
         else:
-            signal = "NO TRADE"
+            signal = "🚫NO TRADE"
     else:
-        signal = "NO TRADE"
+        signal = "🚫NO TRADE"
 
     # --- Straddle Premium Calculation ---
     straddle, call_ask, put_ask, atm_strike = get_straddle_premium(instruments, price, target_expiry_ts)
@@ -312,7 +312,7 @@ def calculate_gamma_exposure():
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        caption += f"{signal} SIGNAL\n"
+        caption += f"{signal}\n"
         caption += straddle_caption + "\n"
         if largest_gex_strike is not None and price is not None:
             caption += above_below_text(largest_gex_strike, price, "largest gex", show_points=True, show_value=False) + "\n"
