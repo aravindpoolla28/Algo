@@ -5,11 +5,17 @@
 # and then be terminated. For a truly continuous bot, consider a dedicated server,
 # cloud platform, or Docker deployment.
 
-ame: Trading Bot Runner # Original name for this workflow
+name: Trading Bot Runner # Original name for this workflow
 
 on:
   push:
     branches: [ "main" ]
+    # --- START: Added 'paths' filter to prevent unnecessary runs ---
+    paths:
+      #- 'trading_bot.py'                  # Include if the script is in the root directory
+      - 'Archive/trading_bot.py'          # Uncomment and use this line if the script is in the Archive/ folder (delete the line above if this is the case)
+      - '.github/workflows/python-app.yml' # Always include the workflow file itself
+    # --- END: Added 'paths' filter ---
   # Allows you to manually trigger the workflow from the GitHub Actions tab
   workflow_dispatch:
 
@@ -61,6 +67,9 @@ jobs:
       env:
         RUNNER_PUBLIC_IP: ${{ steps.get_ip.outputs.ip_address }} # Reference the output by step ID
       run: |
+        # IMPORTANT: If your 'trading_bot.py' script is NOT in the root directory of your repository,
+        # you need to adjust the path here. For example, if it's in an 'Archive/' folder,
+        # change this line to: 'python Archive/trading_bot.py'
         python trading_bot.py # This runs your original trading_bot.py script
 
     # Optional: Add steps here for notifications on script completion/failure,
