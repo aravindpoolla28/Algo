@@ -230,13 +230,13 @@ def calculate_gamma_exposure():
         all_above = all(s > price for s in strikes_top3)
         all_below = all(s < price for s in strikes_top3)
         if all_above:
-            signal = "BUY"
+            signal = "✅BUY"
         elif all_below:
-            signal = "SELL"
+            signal = "✅SELL"
         else:
-            signal = "NO TRADE"
+            signal = "🚫NO TRADE"
     else:
-        signal = "NO TRADE"
+        signal = "🚫NO TRADE"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
