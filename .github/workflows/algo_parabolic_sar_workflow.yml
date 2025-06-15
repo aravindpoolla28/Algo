@@ -10,6 +10,11 @@ name: Algo Parabolic SAR Runner # <--- Unique name for this new workflow
 on:
   push:
     branches: [ "main" ] # Triggers on push to main branch
+    # --- START: Added 'paths' filter to prevent unnecessary runs ---
+    paths:
+      - 'Archive/algo_parabolic_sar.py'          # Include if the script is in the Archive/ folder (delete the above line if this is the case)
+      - '.github/workflows/algo_parabolic_sar_workflow.yml' # Always include the workflow file itself
+    # --- END: Added 'paths' filter ---
   # Allows you to manually trigger the workflow from the GitHub Actions tab
   workflow_dispatch:
     inputs:
@@ -65,7 +70,9 @@ jobs:
       #   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       #   RUNNER_PUBLIC_IP: ${{ steps.get_ip.outputs.ip_address }} # Reference the output by step ID
       run: |
-        python algo_parabolic_sar.py # This runs the NEW script
+        # IMPORTANT: Adjust this path if 'algo_parabolic_sar.py' is NOT in the root directory.
+        # For example, if it's in 'Archive/', change to: 'python Archive/algo_parabolic_sar.py'
+        python Archive/algo_parabolic_sar.py
 
     # Optional: Add steps here for notifications on script completion/failure,
     # or to upload logs if the script exits.
