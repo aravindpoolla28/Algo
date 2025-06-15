@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
 import matplotlib.pyplot as plt
 import pytz # For timezone handling
-import boto3 # NEW: For S3 upload
+import boto3 # For S3 upload
 
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
@@ -220,20 +220,23 @@ def calculate_gamma_exposure():
         closest_strike = min(net_gex_map.keys(), key=lambda x: abs(x - price))
         largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
 
-    # --- Buy/Sell Signal Logic ---
-    # 1. Buy: price is below the three largest negative gex prices
-    # 2. Sell: price is above the three largest positive gex prices
-    largest_negative = sorted([(strike, gex) for strike, gex in net_gex_map.items() if gex < 0], key=lambda x: x[1])[:3]
-    largest_positive = sorted([(strike, gex) for strike, gex in net_gex_map.items() if gex > 0], key=lambda x: -x[1])[:3]
-    signal = None
-    if len(largest_negative) == 3:
-        strikes_neg = [x[0] for x in largest_negative]
-        if all(price < s for s in strikes_neg):
+    # --- Trade Signal Logic ---
+    # Find the three largest GEX strikes by absolute value (positive or negative)
+    largest_gex_strikes = sorted(net_gex_map.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+    strikes_top3 = [s for s, gex in largest_gex_strikes]
+
+    # Check if all three are above or below price
+    if len(strikes_top3) == 3:
+        all_above = all(s > price for s in strikes_top3)
+        all_below = all(s < price for s in strikes_top3)
+        if all_above:
             signal = "BUY"
-    if len(largest_positive) == 3:
-        strikes_pos = [x[0] for x in largest_positive]
-        if all(price > s for s in strikes_pos):
+        elif all_below:
             signal = "SELL"
+        else:
+            signal = "NO TRADE"
+    else:
+        signal = "NO TRADE"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -273,8 +276,7 @@ def calculate_gamma_exposure():
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        if signal is not None:
-            caption += f"{signal} SIGNAL\n"
+        caption += f"{signal} SIGNAL\n"
         if largest_gex_strike is not None and price is not None:
             caption += above_below_text(largest_gex_strike, price, "largest gex", show_points=True, show_value=False) + "\n"
         if min_gex_strike is not None and price is not None:
