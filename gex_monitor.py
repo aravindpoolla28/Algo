@@ -264,7 +264,7 @@ def calculate_gamma_exposure():
         print(f"{strike:<10.1f} | {net_gex_map[strike]:<5}  {label}")
 
     print("\n" + "=" * 50)
-    print(f"TOTAL NET GEX (within ±{PRICE_RANGE_POINTS} range): {total_net_gex:,.0f} BTC")
+    print(f"TOTAL NET GEX (within ±{PRICE_RANGE_POINTS} range): {total_net_gex:,.0f} ")
     print(f"Generated at: {current_time_hhmm} IST")
     print("=" * 50)
 
