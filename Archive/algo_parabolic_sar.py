@@ -252,11 +252,11 @@ while True:
     # INCREASED REQUIRED HISTORY DAYS FOR MORE ROBUST INDICATOR CALCULATION
         required_history_days = 90 # Default to a higher value for safety, adjust as needed per Time_period
         if Time_period == '5m':
-        required_history_days = 5  # Increased from 2 to 5 days for 5m candles
+            required_history_days = 5  # Increased from 2 to 5 days for 5m candles
         elif Time_period == '1h':
-        required_history_days = 60 # Increased from 30 to 60 days for 1h candles
+            required_history_days = 60 # Increased from 30 to 60 days for 1h candles
         elif Time_period == '1d':
-        required_history_days = 500 # Increased from 365 to 500 days for 1d candles
+            required_history_days = 500 # Increased from 365 to 500 days for 1d candles
 
         start_date = datetime.datetime.combine(datetime.date.today() - datetime.timedelta(days=required_history_days), datetime.time(0, 0, 0))
         start_timestamp = int(pytz.utc.localize(start_date).timestamp())
