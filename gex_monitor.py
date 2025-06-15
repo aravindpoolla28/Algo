@@ -123,6 +123,26 @@ def get_next_expiry(instruments):
 def format_ts_to_label(ts_ms):
     return datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc).strftime('%d%b%y').upper()
 
+def above_below_text(strike, price, label, show_points=True, show_value=False):
+    diff = strike - price
+    # If diff < 0 => strike < price => price is above strike => "above"
+    # If diff > 0 => strike > price => price is below strike => "below"
+    if diff < 0:
+        direction = "above"
+    else:
+        direction = "below"
+    diff_val = abs(int(diff))
+    parts = []
+    if show_points:
+        parts.append(f"{diff_val} points")
+    else:
+        parts.append(f"{diff_val}")
+    parts.append(direction)
+    parts.append(label)
+    if show_value:
+        parts.append(f"({strike:,.0f})")
+    return " ".join(parts)
+
 # --- Main Logic ---
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
@@ -242,6 +262,7 @@ def calculate_gamma_exposure():
     max_gex_strike = None
     min_gex_strike = None
     closest_strike = None
+    largest_gex_strike = None
     if net_gex_map:
         max_gex_strike = max(net_gex_map, key=net_gex_map.get)
         min_gex_strike = min(net_gex_map, key=net_gex_map.get)
@@ -261,7 +282,8 @@ def calculate_gamma_exposure():
             label += " ++++ (Max GEX)"
         if strike == min_gex_strike:
             label += " ---- (Min GEX)"
-
+        if strike == largest_gex_strike:
+            label += " <--- (Largest GEX)"
         print(f"{strike:<10.1f} | {net_gex_map[strike]:<5}  {label}")
 
     print("\n" + "=" * 50)
@@ -295,6 +317,9 @@ def calculate_gamma_exposure():
                 bars[i].set_color('red')
             elif strike == closest_strike:
                 bars[i].set_color('orange')
+            elif strike == largest_gex_strike:
+                bars[i].set_edgecolor('black')
+                bars[i].set_linewidth(2)
 
         plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
@@ -319,27 +344,20 @@ def calculate_gamma_exposure():
         # --- Telegram Send Logic ---
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         
-        # Prepare the caption with percentage differences
-        caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        #
+        # Prepare the caption with absolute differences and above/below phrasing
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
 
-# Distance from price magnet (largest GEX)
-        if 'largest_gex_strike' in locals() and price is not None:
-            dist_largest = largest_gex_strike - price
-            caption += f"{dist_largest:+.0f} from largest gex\n"
-        
+        if largest_gex_strike is not None and price is not None:
+            caption += above_below_text(largest_gex_strike, price, "largest gex", show_points=True, show_value=False) + "\n"
+
         if min_gex_strike is not None and price is not None:
-            abs_diff_min = min_gex_strike - price
-            caption += f"{abs_diff_min:+.0f} from Min GEX ({min_gex_strike:,.0f})\n"
-        
+            caption += above_below_text(min_gex_strike, price, f"Min GEX ({min_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
+
         if max_gex_strike is not None and price is not None:
-            abs_diff_max = max_gex_strike - price
-            caption += f"{abs_diff_max:+.0f} from Max GEX ({max_gex_strike:,.0f})\n"
-        
+            caption += above_below_text(max_gex_strike, price, f"Max GEX ({max_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
+
         caption += f"Generated at: {current_time_hhmm} IST"
-        #
-        
+
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
             data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
