@@ -308,7 +308,7 @@ def calculate_gamma_exposure():
         plt.tight_layout()
 
         # --- Simplified info_text and increased font size ---
-        info_text = f"gex: {total_net_gex:,.0f} at {current_time_hhmm} IST"
+        info_text = f"Net GEX: {total_net_gex:,.0f} at {current_time_hhmm} IST"
         plt.figtext(0.5, 0.01, info_text, ha="center", fontsize=25, bbox={"facecolor":"white", "alpha":0.8, "pad":5})
 
         plt.savefig(temp_filepath) # Save the plot temporarily to file
