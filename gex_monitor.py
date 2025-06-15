@@ -276,7 +276,7 @@ def calculate_gamma_exposure():
 
     try:
         print("Generating and saving chart locally...")
-        plt.figure(figsize=(12, 7)) 
+        plt.figure(figsize=(12, 7))
         
         # Use filtered sorted_strikes and gex_values for the bars
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
