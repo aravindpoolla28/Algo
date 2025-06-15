@@ -320,17 +320,17 @@ def calculate_gamma_exposure():
         
         # Prepare the caption with percentage differences
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
-
+        
+        #
         if min_gex_strike is not None and price is not None:
-            pct_from_min_gex = ((min_gex_strike - price) / price) * 100
-            caption += f"{pct_from_min_gex:+.2f}% from Min GEX ({min_gex_strike:,.0f})\n"
+            abs_diff_min = min_gex_strike - price
+            caption += f"{abs_diff_min:+.0f} from Min GEX ({min_gex_strike:,.0f})\n"
 
         if max_gex_strike is not None and price is not None:
-            pct_from_max_gex = ((max_gex_strike - price) / price) * 100
-            caption += f"{pct_from_max_gex:+.2f}% from Max GEX ({max_gex_strike:,.0f})\n"
+            abs_diff_max = max_gex_strike - price
+            caption += f"{abs_diff_max:+.0f} from Max GEX ({max_gex_strike:,.0f})\n"
         
         caption += f"Generated at: {current_time_hhmm} IST" # Add timestamp to caption
-
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
