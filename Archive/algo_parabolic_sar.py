@@ -269,8 +269,7 @@ while True:
         )
 
         if r.status_code == 200 and 'result' in r.json():
-            candles_data = r.json()['result'] # Store raw data to print count
-            print(f"--- DEBUG: Raw candles fetched count: {len(candles_data)}") # Debug Print 1
+            candles_data = r.json()['result']
             if not candles_data: # Check if candles_data is empty
                 print("No candles data returned from API. Waiting for next interval.")
                 sys.stdout.flush()
@@ -281,19 +280,10 @@ while True:
             df['date_time'] = pd.to_datetime(df['time'], unit='s').dt.tz_localize('UTC').dt.tz_convert(INDIA_TZ).dt.tz_localize(None)
             df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
 
-            print(f"--- DEBUG: DataFrame shape after initial load: {df.shape}") # Debug Print 2
-            # print(f"--- DEBUG: DataFrame head (first 5 rows) after initial load:\n{df.head().to_string()}") # Debug Print 3 (Optional: can be verbose)
-            # print(f"--- DEBUG: DataFrame tail (last 5 rows) after initial load:\n{df.tail().to_string()}") # Debug Print 4 (Optional: can be verbose)
-            print(f"--- DEBUG: DataFrame info after initial load:") # Debug Print 5
-            sys.stdout.flush() # Flush print before df.info() for better log order
-            df.info()
-            sys.stdout.flush() # Flush print after df.info()
-
             # Ensure enough data for all calculations, including PSAR initial period
             # Roughly doubled for robustness is a good heuristic.
             # ADX_PERIOD * 2 or similar is often needed for indicators to stabilize.
             min_data_needed = max(LONG_EMA_PERIOD, ADX_PERIOD, RSI_PERIOD) * 2
-            print(f"--- DEBUG: min_data_needed calculated as: {min_data_needed}") # Debug Print 6
 
             if len(df) < min_data_needed:
                 print(f"Not enough historical data ({len(df)} candles) from API to calculate all indicators. Need at least {min_data_needed}. Waiting for more data.")
@@ -332,20 +322,13 @@ while True:
             # RSI
             df['rsi'] = RSIIndicator(df.close, RSI_PERIOD).rsi()
 
-            print(f"--- DEBUG: DataFrame shape after indicator calculation (before dropna): {df.shape}") # Debug Print 7
-            print(f"--- DEBUG: Number of NaN values per column before dropna:\n{df.isnull().sum().to_string()}") # Debug Print 8
-
             # --- CRITICAL FIX: Only drop NaNs from relevant indicator columns ---
             # PSAR_up and PSAR_down are designed to have NaNs when not active, so don't drop based on them.
             columns_to_check_for_nan = ['psar', 'short_ema', 'long_ema', 'adx', 'rsi']
             df_cleaned = df.dropna(subset=columns_to_check_for_nan).reset_index(drop=True)
 
-            print(f"--- DEBUG: DataFrame shape AFTER targeted dropna: {df_cleaned.shape}") # Debug Print 9 (updated message)
-            # print(f"--- DEBUG: DataFrame head AFTER dropna:\n{df_cleaned.head().to_string()}") # Debug Print 10 (Optional: can be verbose)
-            # print(f"--- DEBUG: DataFrame tail AFTER dropna:\n{df_cleaned.tail().to_string()}") # Debug Print 11 (Optional: can be verbose)
-
             if df_cleaned.empty or len(df_cleaned) < 2: # Need at least two clean rows for comparison
-                print(f"--- DEBUG: Current df_cleaned length: {len(df_cleaned)}. Not enough valid data. DF will be empty or too short.") # Debug Print 12
+                print(f"DataFrame is empty or has insufficient rows after dropping NaN values from indicators. Not enough valid data for a signal.")
                 sys.stdout.flush()
                 time.sleep(55)
                 continue
@@ -383,7 +366,7 @@ while True:
 
             if psar_buy_flip and ema_buy_confirmation and rsi_buy_confirmation and is_strong_trend:
                 signal_type = 'buy'
-                print(f"DEBUG: BUY conditions met: PSAR Flip ({psar_buy_flip}), EMA Confirm ({ema_buy_confirmation}), RSI Confirm ({rsi_buy_confirmation}), Strong Trend ({is_strong_trend})")
+                # print(f"DEBUG: BUY conditions met: PSAR Flip ({psar_buy_flip}), EMA Confirm ({ema_buy_confirmation}), RSI Confirm ({rsi_buy_confirmation}), Strong Trend ({is_strong_trend})") # Debug Print removed
                 sys.stdout.flush()
 
             # Sell Signal Conditions
@@ -401,7 +384,7 @@ while True:
 
             if psar_sell_flip and ema_sell_confirmation and rsi_sell_confirmation and is_strong_trend:
                 signal_type = 'sell'
-                print(f"DEBUG: SELL conditions met: PSAR Flip ({psar_sell_flip}), EMA Confirm ({ema_sell_confirmation}), RSI Confirm ({rsi_sell_confirmation}), Strong Trend ({is_strong_trend})")
+                # print(f"DEBUG: SELL conditions met: PSAR Flip ({psar_sell_flip}), EMA Confirm ({ema_sell_confirmation}), RSI Confirm ({rsi_sell_confirmation}), Strong Trend ({is_strong_trend})") # Debug Print removed
                 sys.stdout.flush()
 
             if signal_type:
