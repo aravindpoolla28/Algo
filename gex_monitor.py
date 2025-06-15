@@ -323,11 +323,11 @@ def calculate_gamma_exposure():
 
         if min_gex_strike is not None and price is not None:
             pct_from_min_gex = ((min_gex_strike - price) / price) * 100
-            caption += f"Price is {pct_from_min_gex:+.2f}% from Min GEX ({min_gex_strike:,.0f})\n"
+            caption += f"{pct_from_min_gex:+.2f}% from Min GEX ({min_gex_strike:,.0f})\n"
 
         if max_gex_strike is not None and price is not None:
             pct_from_max_gex = ((max_gex_strike - price) / price) * 100
-            caption += f"Price is {pct_from_max_gex:+.2f}% from Max GEX ({max_gex_strike:,.0f})\n"
+            caption += f"{pct_from_max_gex:+.2f}% from Max GEX ({max_gex_strike:,.0f})\n"
         
         caption += f"Generated at: {current_time_hhmm} IST" # Add timestamp to caption
 
