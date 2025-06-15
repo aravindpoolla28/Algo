@@ -308,8 +308,8 @@ def calculate_gamma_exposure():
         plt.tight_layout()
 
         # --- Simplified info_text and increased font size ---
-        info_text = f"Net GEX: {total_net_gex:,.0f} at {current_time_hhmm} IST"
-        plt.figtext(0.5, 0.01, info_text, ha="center", fontsize=25, bbox={"facecolor":"white", "alpha":0.8, "pad":5})
+        # Removed the info_text from figtext as we're moving more details to caption
+        # plt.figtext(0.5, 0.01, info_text, ha="center", fontsize=25, bbox={"facecolor":"white", "alpha":0.8, "pad":5})
 
         plt.savefig(temp_filepath) # Save the plot temporarily to file
         print(f"Plot saved locally to: {temp_filepath}")
@@ -318,12 +318,19 @@ def calculate_gamma_exposure():
         # --- Telegram Send Logic ---
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         
-        # Prepare the caption
-        caption = (
-            #f"BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n"
-            f"Net GEX: {total_net_gex:,.0f}"
-            
-        )
+        # Prepare the caption with percentage differences
+        caption = f"Net GEX: {total_net_gex:,.0f}\n"
+
+        if min_gex_strike is not None and price is not None:
+            pct_from_min_gex = ((min_gex_strike - price) / price) * 100
+            caption += f"Price is {pct_from_min_gex:+.2f}% from Min GEX ({min_gex_strike:,.0f})\n"
+
+        if max_gex_strike is not None and price is not None:
+            pct_from_max_gex = ((max_gex_strike - price) / price) * 100
+            caption += f"Price is {pct_from_max_gex:+.2f}% from Max GEX ({max_gex_strike:,.0f})\n"
+        
+        caption += f"Generated at: {current_time_hhmm} IST" # Add timestamp to caption
+
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
