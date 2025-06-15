@@ -298,7 +298,8 @@ def calculate_gamma_exposure():
         plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
 
-        plt.title(f'BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n±{PRICE_RANGE_POINTS} Around Current Price', fontsize=14) 
+        #plt.title(f'BTC Options Net Gamma Exposure ({expiry_label} Expiry)\n±{PRICE_RANGE_POINTS} Around Current Price', fontsize=14) 
+        plt.title('BTC GEX for next expiry', fontsize=14)
         plt.xlabel('Strike Price', fontsize=12)
         plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
