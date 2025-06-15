@@ -234,9 +234,9 @@ def calculate_gamma_exposure():
         elif all_below:
             signal = "✅SELL"
         else:
-            #signal = "🚫NO TRADE"
+            signal = "🚫NO TRADE"
     else:
-        #signal = "🚫NO TRADE"
+        signal = "🚫NO TRADE"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -265,7 +265,7 @@ def calculate_gamma_exposure():
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
         plt.title('BTC GEX for next expiry', fontsize=14)
         plt.xlabel('Strike Price', fontsize=12)
-        plt.ylabel('Net Gamma Exposure', fontsize=12)
+        plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
         plt.grid(axis='y', linestyle='--', alpha=0.7)
         plt.legend()
