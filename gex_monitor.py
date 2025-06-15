@@ -246,6 +246,7 @@ def calculate_gamma_exposure():
         max_gex_strike = max(net_gex_map, key=net_gex_map.get)
         min_gex_strike = min(net_gex_map, key=net_gex_map.get)
         closest_strike = min(net_gex_map.keys(), key=lambda x: abs(x - price))
+        largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
 
     # --- Console Output ---
     print(f"Net Gamma Exposure for BTC Options (Next Expiry: {expiry_label}) within ±{PRICE_RANGE_POINTS} range:")
@@ -320,18 +321,25 @@ def calculate_gamma_exposure():
         
         # Prepare the caption with percentage differences
         caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        
         #
+        caption = f"Net GEX: {total_net_gex:,.0f}\n"
+
+# Distance from price magnet (largest GEX)
+        if 'largest_gex_strike' in locals() and price is not None:
+            dist_largest = largest_gex_strike - price
+            caption += f"{dist_largest:+.0f} from largest gex\n"
+        
         if min_gex_strike is not None and price is not None:
             abs_diff_min = min_gex_strike - price
             caption += f"{abs_diff_min:+.0f} from Min GEX ({min_gex_strike:,.0f})\n"
-
+        
         if max_gex_strike is not None and price is not None:
             abs_diff_max = max_gex_strike - price
             caption += f"{abs_diff_max:+.0f} from Max GEX ({max_gex_strike:,.0f})\n"
         
-        caption += f"Generated at: {current_time_hhmm} IST" # Add timestamp to caption
-
+        caption += f"Generated at: {current_time_hhmm} IST"
+        #
+        
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
             data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
