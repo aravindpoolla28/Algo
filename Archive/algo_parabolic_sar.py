@@ -22,7 +22,7 @@ client_credentials = [
 # WARNING: TELEGRAM TOKEN AND CHAT ID ARE HARDCODED BELOW.
 # THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
 # FOR SECURE DEPLOYMENT, YOU MUST USE GITHUB SECRETS OR A SIMILAR SECURE METHOD.
-TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXYc93nbRy12ECIg' # Your bot token
+TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
 TELEGRAM_CHAT_ID = '-1002715827375'    # Your group chat ID (starts with -)
 
 
@@ -335,9 +335,12 @@ while True:
             print(f"--- DEBUG: DataFrame shape after indicator calculation (before dropna): {df.shape}") # Debug Print 7
             print(f"--- DEBUG: Number of NaN values per column before dropna:\n{df.isnull().sum().to_string()}") # Debug Print 8
 
-            df_cleaned = df.dropna().reset_index(drop=True) # Reset index after dropping NaNs
+            # --- CRITICAL FIX: Only drop NaNs from relevant indicator columns ---
+            # PSAR_up and PSAR_down are designed to have NaNs when not active, so don't drop based on them.
+            columns_to_check_for_nan = ['psar', 'short_ema', 'long_ema', 'adx', 'rsi']
+            df_cleaned = df.dropna(subset=columns_to_check_for_nan).reset_index(drop=True)
 
-            print(f"--- DEBUG: DataFrame shape AFTER dropna: {df_cleaned.shape}") # Debug Print 9
+            print(f"--- DEBUG: DataFrame shape AFTER targeted dropna: {df_cleaned.shape}") # Debug Print 9 (updated message)
             # print(f"--- DEBUG: DataFrame head AFTER dropna:\n{df_cleaned.head().to_string()}") # Debug Print 10 (Optional: can be verbose)
             # print(f"--- DEBUG: DataFrame tail AFTER dropna:\n{df_cleaned.tail().to_string()}") # Debug Print 11 (Optional: can be verbose)
 
