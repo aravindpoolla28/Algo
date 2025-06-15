@@ -22,7 +22,7 @@ client_credentials = [
 # WARNING: TELEGRAM TOKEN AND CHAT ID ARE HARDCODED BELOW.
 # THIS IS HIGHLY INSECURE FOR PRODUCTION OR PUBLIC REPOSITORIES.
 # FOR SECURE DEPLOYMENT, YOU MUST USE GITHUB SECRETS OR A SIMILAR SECURE METHOD.
-TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXhYc93nbRy12ECIg' # Your bot token
+TELEGRAM_BOT_TOKEN = '7877965990:AAFwec4v_FU2lRhhkeTXYc93nbRy12ECIg' # Your bot token
 TELEGRAM_CHAT_ID = '-1002715827375'    # Your group chat ID (starts with -)
 
 
@@ -46,13 +46,13 @@ RSI_OVERSOLD = 30
 RSI_MIDLINE = 50 # Used for confirming momentum direction
 
 # Risk Management Parameters
-TP_RISK_RATIO = 3.0   # Take Profit Risk-Reward Ratio (e.g., 3x the risk for TP)
+TP_RISK_RATIO = 3.0    # Take Profit Risk-Reward Ratio (e.g., 3x the risk for TP)
 SL_PERCENTAGE = 0.005 # 0.5% Stop Loss (from entry price)
 
 # Trading Parameters
 Time_period = '5m' # Candle resolution (e.g., '1m', '5m', '15m', '1h', '1d')
 symbol = 'BTCUSD'
-order_quantity = 10
+order_quantity = 2 # Quantity remains 2 as per your instruction
 
 
 # Define the target timezone
@@ -246,17 +246,16 @@ while True:
 
         # Fetch enough historical data for all indicators (PSAR, EMAs, ADX, RSI)
         # PSAR needs previous data, ADX needs 2*ADX_PERIOD for good results
-        
+
         # Set timedelta for sufficient data
-        # Set timedelta for sufficient data
-    # INCREASED REQUIRED HISTORY DAYS FOR MORE ROBUST INDICATOR CALCULATION
+        # INCREASED REQUIRED HISTORY DAYS FOR MORE ROBUST INDICATOR CALCULATION
         required_history_days = 90 # Default to a higher value for safety, adjust as needed per Time_period
         if Time_period == '5m':
-            required_history_days = 30  # Increased from 2 to 5 days for 5m candles
+            required_history_days = 30 # Current value is 30 days. Consider increasing if data is still insufficient.
         elif Time_period == '1h':
-            required_history_days = 60 # Increased from 30 to 60 days for 1h candles
+            required_history_days = 60
         elif Time_period == '1d':
-            required_history_days = 500 # Increased from 365 to 500 days for 1d candles
+            required_history_days = 500
 
         start_date = datetime.datetime.combine(datetime.date.today() - datetime.timedelta(days=required_history_days), datetime.time(0, 0, 0))
         start_timestamp = int(pytz.utc.localize(start_date).timestamp())
@@ -270,12 +269,32 @@ while True:
         )
 
         if r.status_code == 200 and 'result' in r.json():
-            df = pd.DataFrame(r.json()['result'])
+            candles_data = r.json()['result'] # Store raw data to print count
+            print(f"--- DEBUG: Raw candles fetched count: {len(candles_data)}") # Debug Print 1
+            if not candles_data: # Check if candles_data is empty
+                print("No candles data returned from API. Waiting for next interval.")
+                sys.stdout.flush()
+                time.sleep(55)
+                continue
+
+            df = pd.DataFrame(candles_data)
             df['date_time'] = pd.to_datetime(df['time'], unit='s').dt.tz_localize('UTC').dt.tz_convert(INDIA_TZ).dt.tz_localize(None)
             df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
 
+            print(f"--- DEBUG: DataFrame shape after initial load: {df.shape}") # Debug Print 2
+            # print(f"--- DEBUG: DataFrame head (first 5 rows) after initial load:\n{df.head().to_string()}") # Debug Print 3 (Optional: can be verbose)
+            # print(f"--- DEBUG: DataFrame tail (last 5 rows) after initial load:\n{df.tail().to_string()}") # Debug Print 4 (Optional: can be verbose)
+            print(f"--- DEBUG: DataFrame info after initial load:") # Debug Print 5
+            sys.stdout.flush() # Flush print before df.info() for better log order
+            df.info()
+            sys.stdout.flush() # Flush print after df.info()
+
             # Ensure enough data for all calculations, including PSAR initial period
-            min_data_needed = max(LONG_EMA_PERIOD, ADX_PERIOD, RSI_PERIOD) * 2 # Roughly doubled for robustness
+            # Roughly doubled for robustness is a good heuristic.
+            # ADX_PERIOD * 2 or similar is often needed for indicators to stabilize.
+            min_data_needed = max(LONG_EMA_PERIOD, ADX_PERIOD, RSI_PERIOD) * 2
+            print(f"--- DEBUG: min_data_needed calculated as: {min_data_needed}") # Debug Print 6
+
             if len(df) < min_data_needed:
                 print(f"Not enough historical data ({len(df)} candles) from API to calculate all indicators. Need at least {min_data_needed}. Waiting for more data.")
                 sys.stdout.flush()
@@ -313,10 +332,17 @@ while True:
             # RSI
             df['rsi'] = RSIIndicator(df.close, RSI_PERIOD).rsi()
 
+            print(f"--- DEBUG: DataFrame shape after indicator calculation (before dropna): {df.shape}") # Debug Print 7
+            print(f"--- DEBUG: Number of NaN values per column before dropna:\n{df.isnull().sum().to_string()}") # Debug Print 8
+
             df_cleaned = df.dropna().reset_index(drop=True) # Reset index after dropping NaNs
 
+            print(f"--- DEBUG: DataFrame shape AFTER dropna: {df_cleaned.shape}") # Debug Print 9
+            # print(f"--- DEBUG: DataFrame head AFTER dropna:\n{df_cleaned.head().to_string()}") # Debug Print 10 (Optional: can be verbose)
+            # print(f"--- DEBUG: DataFrame tail AFTER dropna:\n{df_cleaned.tail().to_string()}") # Debug Print 11 (Optional: can be verbose)
+
             if df_cleaned.empty or len(df_cleaned) < 2: # Need at least two clean rows for comparison
-                print("DataFrame is empty or has insufficient rows after dropping NaN values from indicators. Not enough valid data for a signal.")
+                print(f"--- DEBUG: Current df_cleaned length: {len(df_cleaned)}. Not enough valid data. DF will be empty or too short.") # Debug Print 12
                 sys.stdout.flush()
                 time.sleep(55)
                 continue
