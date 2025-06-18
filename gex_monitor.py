@@ -215,20 +215,21 @@ def calculate_gamma_exposure():
     gex_above = sum(abs(gex) for strike, gex in net_gex_map.items() if strike > price)
     gex_total = gex_below + gex_above
     if gex_total > 0:
-        ratio = 100 * gex_below / gex_total
-        ratio_str = f"{ratio:.1f}%"
+        ratio = (gex_below / gex_above)*100
+        ratio_str = f"{ratio:.0f}%"
     else:
         ratio_str = "N/A"
 
-    max_gex_strike = None
-    min_gex_strike = None
-    closest_strike = None
-    largest_gex_strike = None
-    if net_gex_map:
-        max_gex_strike = max(net_gex_map, key=net_gex_map.get)
-        min_gex_strike = min(net_gex_map, key=net_gex_map.get)
-        closest_strike = min(net_gex_map.keys(), key=lambda x: abs(x - price))
-        largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
+    # Find the largest GEX strike (by absolute value) and its distance to current price
+    largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
+    distance_to_largest_gex = abs(price - largest_gex_strike)
+
+    # Add direction logic for the distance and threshold
+    direction_line = ""
+    if distance_to_largest_gex > 500 and price > largest_gex_strike:
+        direction_line = f"👇 -> {int(distance_to_largest_gex)}"
+    elif price < largest_gex_strike:
+        direction_line = f"👆 -> {int(distance_to_largest_gex)}"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -244,11 +245,11 @@ def calculate_gamma_exposure():
             yval = bar.get_height()
             plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval), ha='center', va='bottom', fontsize=12)
         for i, strike in enumerate(sorted_strikes):
-            if strike == max_gex_strike:
+            if strike == max(net_gex_map, key=net_gex_map.get):
                 bars[i].set_color('green')
-            elif strike == min_gex_strike:
+            elif strike == min(net_gex_map, key=net_gex_map.get):
                 bars[i].set_color('red')
-            elif strike == closest_strike:
+            elif strike == min(net_gex_map.keys(), key=lambda x: abs(x - price)):
                 bars[i].set_color('orange')
             elif strike == largest_gex_strike:
                 bars[i].set_edgecolor('black')
@@ -268,9 +269,14 @@ def calculate_gamma_exposure():
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = (
-            f"GEX below price: {gex_below}\n"
-            f"GEX above price: {gex_above}\n"
-            f"Below/Total ratio: {ratio_str}\n"
+            #f"GEX below price: {gex_below}\n"
+            #f"GEX above price: {gex_above}\n"
+            f"Down/Up ratio: {ratio_str}\n"
+            f"Distance ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
+        )
+        if direction_line:
+            caption += f"{direction_line}\n"
+        caption += (
             f"Net GEX: {total_net_gex:,.0f}\n"
             f"Generated at: {current_time_hhmm} IST"
         )
