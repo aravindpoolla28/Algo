@@ -268,8 +268,8 @@ def calculate_gamma_exposure():
         plt.close()
 
         no_trade_line=""
-        if 0.8 <= ratio <= 1.2:
-        no_trade_line = "no trade\n"
+        if ratio is not None and 80 <= ratio <= 120:
+            no_trade_line = "No trade\n"
 
         
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
