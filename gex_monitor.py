@@ -269,7 +269,7 @@ def calculate_gamma_exposure():
 
         no_trade_line=""
         if ratio is not None and 80 <= ratio <= 120:
-            no_trade_line = "No trade\n"
+            no_trade_line = "Neutral👉🏻\n"
 
         
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
@@ -277,11 +277,12 @@ def calculate_gamma_exposure():
 
             f"GEX below: {gex_below}\n"
             f"GEX above: {gex_above}\n"
+            f"----\n
             f"Ratio: {ratio_str}\n"
             f"{no_trade_line}"
             #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
             f"----\n"
-            f"{direction_line} to {largest_gex_strike}\n" 
+            f"{direction_line} to {largest_gex_strike:.0f}\n" 
             f"Net GEX: {total_net_gex:,.0f}"
             
         )
