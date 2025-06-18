@@ -269,16 +269,18 @@ def calculate_gamma_exposure():
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = (
-            #f"GEX below price: {gex_below}\n"
-            #f"GEX above price: {gex_above}\n"
+
+            f"GEX below price: {gex_below}\n"
+            f"GEX above price: {gex_above}\n"
             f"Down/Up ratio: {ratio_str}\n"
             f"Distance ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
+            
         )
         if direction_line:
             caption += f"{direction_line}\n"
         caption += (
             f"Net GEX: {total_net_gex:,.0f}\n"
-            f"Generated at: {current_time_hhmm} IST"
+            #f"Generated at: {current_time_hhmm} IST"
         )
 
         with open(temp_filepath, 'rb') as photo_file:
