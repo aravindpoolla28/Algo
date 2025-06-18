@@ -277,7 +277,7 @@ def calculate_gamma_exposure():
 
             f"GEX below: {gex_below}\n"
             f"GEX above: {gex_above}\n"
-            f"----\n
+            f"----\n"
             f"Ratio: {ratio_str}\n"
             f"{no_trade_line}"
             #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
