@@ -267,14 +267,20 @@ def calculate_gamma_exposure():
         print(f"Plot saved locally to: {temp_filepath}")
         plt.close()
 
+        no_trade_line=""
+        if 0.8 <= ratio <= 1.2:
+        no_trade_line = "no trade\n"
+
+        
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = (
 
             f"GEX below: {gex_below}\n"
             f"GEX above: {gex_above}\n"
             f"Ratio: {ratio_str}\n"
+            f"{no_trade_line}"
             #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
-            f"----"
+            f"----\n"
             f"Direction {direction_line}\n" 
             f"Net GEX: {total_net_gex:,.0f}"
             
