@@ -227,9 +227,9 @@ def calculate_gamma_exposure():
     # Add direction logic for the distance and threshold
     direction_line = ""
     if price > largest_gex_strike:
-        direction_line = f"👇 -> {int(distance_to_largest_gex)}"
+        direction_line = f"👇 by {int(distance_to_largest_gex)}"
     elif price < largest_gex_strike:
-        direction_line = f"👆 -> {int(distance_to_largest_gex)}"
+        direction_line = f"👆 by {int(distance_to_largest_gex)}"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
