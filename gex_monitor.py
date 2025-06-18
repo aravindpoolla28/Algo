@@ -210,6 +210,16 @@ def calculate_gamma_exposure():
     total_net_gex = sum(gex_values)
     current_time_hhmm = now_ist.strftime('%H:%M')
 
+    # Calculate GEX sums below and above current price (absolute values)
+    gex_below = sum(abs(gex) for strike, gex in net_gex_map.items() if strike < price)
+    gex_above = sum(abs(gex) for strike, gex in net_gex_map.items() if strike > price)
+    gex_total = gex_below + gex_above
+    if gex_total > 0:
+        ratio = 100 * gex_below / gex_total
+        ratio_str = f"{ratio:.1f}%"
+    else:
+        ratio_str = "N/A"
+
     max_gex_strike = None
     min_gex_strike = None
     closest_strike = None
@@ -219,24 +229,6 @@ def calculate_gamma_exposure():
         min_gex_strike = min(net_gex_map, key=net_gex_map.get)
         closest_strike = min(net_gex_map.keys(), key=lambda x: abs(x - price))
         largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
-
-    # --- Trade Signal Logic ---
-    # Find the three largest GEX strikes by absolute value (positive or negative)
-    largest_gex_strikes = sorted(net_gex_map.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
-    strikes_top3 = [s for s, gex in largest_gex_strikes]
-
-    # Check if all three are above or below price
-    if len(strikes_top3) == 3:
-        all_above = all(s > price for s in strikes_top3)
-        all_below = all(s < price for s in strikes_top3)
-        if all_above:
-            signal = "✅BUY"
-        elif all_below:
-            signal = "✅SELL"
-        else:
-            signal = "🚫NO TRADE"
-    else:
-        signal = "🚫NO TRADE"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -275,15 +267,13 @@ def calculate_gamma_exposure():
         plt.close()
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-        caption = f"Net GEX: {total_net_gex:,.0f}\n"
-        caption += f"{signal}\n"
-        if largest_gex_strike is not None and price is not None:
-            caption += above_below_text(largest_gex_strike, price, "largest gex", show_points=True, show_value=False) + "\n"
-        #if min_gex_strike is not None and price is not None:
-            #caption += above_below_text(min_gex_strike, price, f"Min GEX ({min_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
-        #if max_gex_strike is not None and price is not None:
-            #caption += above_below_text(max_gex_strike, price, f"Max GEX ({max_gex_strike:,.0f})", show_points=False, show_value=True) + "\n"
-        #caption += f"Generated at: {current_time_hhmm} IST"
+        caption = (
+            f"GEX below price: {gex_below}\n"
+            f"GEX above price: {gex_above}\n"
+            f"Below/Total ratio: {ratio_str}\n"
+            f"Net GEX: {total_net_gex:,.0f}\n"
+            f"Generated at: {current_time_hhmm} IST"
+        )
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
