@@ -215,7 +215,7 @@ def calculate_gamma_exposure():
     gex_above = sum(abs(gex) for strike, gex in net_gex_map.items() if strike > price)
     gex_total = gex_below + gex_above
     if gex_total > 0:
-        ratio = (gex_below / gex_above)*100
+        ratio = (gex_above / gex_below)*100
         ratio_str = f"{ratio:.0f}%"
     else:
         ratio_str = "N/A"
@@ -272,8 +272,9 @@ def calculate_gamma_exposure():
 
             f"GEX below price: {gex_below}\n"
             f"GEX above price: {gex_above}\n"
-            f"Down/Up ratio: {ratio_str}\n"
-            f"Distance ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
+            f"Ratio: {ratio_str}\n"
+            #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
+            f"Direction {direction_line}" 
             
         )
         if direction_line:
