@@ -26,7 +26,7 @@ S3_BUCKET_NAME = "gex-charts-mybitcoin"
 LATEST_CHART_KEY = "latest_gex_chart.png"
 
 SHEET_CREDENTIALS = '/home/ubuntu/Algo/gex-sheet-integration-1fa62d638e51.json'
-SHEET_NAME = 'Sheet1'
+SHEET_NAME = 'BTC GEX log'
 
 scope = [
     "https://spreadsheets.google.com/feeds",
