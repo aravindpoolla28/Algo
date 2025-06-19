@@ -5,34 +5,28 @@ import datetime
 import json
 import os
 import matplotlib
-matplotlib.use('Agg') # IMPORTANT: Use Agg backend for non-GUI environments
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import pytz # For timezone handling
-import boto3 # For S3 upload
+import pytz
+import boto3
 
-# --- Google Sheets Integration ---
-import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
 HEADERS = {"Accept": "application/json"}
-PRICE_RANGE_POINTS = 6000 # Define the range around the current price
+PRICE_RANGE_POINTS = 6000
 
-# Define the Indian Standard Time timezone
 IST = pytz.timezone('Asia/Kolkata')
 
-# --- Telegram Configuration ---
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
-# --- S3 Configuration ---
 S3_BUCKET_NAME = "gex-charts-mybitcoin"
 LATEST_CHART_KEY = "latest_gex_chart.png"
 
-# --- Google Sheets Setup ---
 SHEET_CREDENTIALS = '/home/ubuntu/Algo/gex-sheet-integration-1fa62d638e51.json'
-SHEET_NAME = 'Sheet1'  # <--- Replace with your actual sheet name
+SHEET_NAME = 'Sheet1'
 
 scope = [
     "https://spreadsheets.google.com/feeds",
@@ -45,7 +39,7 @@ gs_client = gspread.authorize(creds)
 def append_gex_data_to_sheet(row):
     try:
         sh = gs_client.open(SHEET_NAME)
-        worksheet = sh.sheet1  # logs to first sheet
+        worksheet = sh.sheet1
         worksheet.append_row(row, value_input_option='USER_ENTERED')
         print("Appended row to Google Sheet:", row)
     except Exception as e:
@@ -66,7 +60,64 @@ def upload_to_s3(file_name, bucket, object_name=None):
         return False
     return True
 
-# ... [rest of your unchanged functions here] ...
+# --- MISSING FUNCTION IMPLEMENTATIONS ---
+
+def get_current_price():
+    """Get the current BTC-PERPETUAL mark price from Deribit."""
+    try:
+        url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        return data['result']['mark_price']
+    except Exception as e:
+        print(f"Error fetching current BTC price: {e}")
+        return None
+
+def get_instruments():
+    """Fetch all BTC option instruments from Deribit."""
+    try:
+        url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        return data['result']
+    except Exception as e:
+        print(f"Error fetching BTC instruments: {e}")
+        return []
+
+def get_next_expiry(instruments):
+    """Find the next expiry timestamp (8:00 UTC) from the instruments list."""
+    expiries = sorted(set(i['expiration_timestamp'] for i in instruments))
+    now = int(time.time() * 1000)
+    for ts in expiries:
+        if ts > now:
+            # Optionally, ensure it's an 8:00 UTC expiry (Deribit standard)
+            dt = datetime.datetime.fromtimestamp(ts/1000, tz=datetime.timezone.utc)
+            if dt.hour == 8 and dt.minute == 0:
+                return ts
+    return None
+
+def format_ts_to_label(ts):
+    """Format timestamp to expiry label, e.g. 20JUN25."""
+    dt = datetime.datetime.fromtimestamp(ts/1000, tz=datetime.timezone.utc)
+    return dt.strftime('%d%b%y').upper()
+
+def get_greeks_and_oi(instrument_name):
+    """Fetch gamma and open interest for an instrument."""
+    try:
+        url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()['result']
+        gamma = data.get('greeks', {}).get('gamma', 0.0)
+        oi = data.get('open_interest', 0)
+        return {'gamma': gamma, 'oi': oi}
+    except Exception as e:
+        print(f"Error fetching greeks/OI for {instrument_name}: {e}")
+        return None
+
+# --- MAIN GEX FUNCTION (unchanged) ---
 
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
@@ -161,30 +212,27 @@ def calculate_gamma_exposure():
     total_net_gex = sum(gex_values)
     current_time_hhmm = now_ist.strftime('%H:%M')
 
-    # Calculate GEX sums below and above current price (absolute values)
     gex_below = sum(abs(gex) for strike, gex in net_gex_map.items() if strike < price)
     gex_above = sum(abs(gex) for strike, gex in net_gex_map.items() if strike > price)
     gex_total = gex_below + gex_above
-    if gex_total > 0:
+    if gex_total > 0 and gex_below > 0:
         ratio = (gex_above / gex_below)*100
         ratio_str = f"{ratio:.0f}%"
     else:
+        ratio = None
         ratio_str = "N/A"
 
-    # Find the largest GEX strike (by absolute value) and its distance to current price
     largest_gex_strike = max(net_gex_map, key=lambda x: abs(net_gex_map[x]))
     distance_to_largest_gex = abs(price - largest_gex_strike)
 
-    # Add direction logic for the distance and threshold
     direction_line = ""
     if price > largest_gex_strike:
         direction_line = f"👇🏻 by {int(distance_to_largest_gex)}"
     elif price < largest_gex_strike:
         direction_line = f"👆🏻 by {int(distance_to_largest_gex)}"
 
-    # --- Google Sheets Logging: Append Row ---
     sheet_row = [
-        now_ist.strftime("%Y-%m-%d %H:%M:%S"),  # Timestamp IST
+        now_ist.strftime("%Y-%m-%d %H:%M:%S"),
         price,
         expiry_label,
         gex_below,
@@ -196,7 +244,6 @@ def calculate_gamma_exposure():
     ]
     append_gex_data_to_sheet(sheet_row)
 
-    # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
     output_filename = "current_gex_chart.png"
     temp_filepath = os.path.join(temp_dir, output_filename)
@@ -235,27 +282,22 @@ def calculate_gamma_exposure():
         no_trade_line=""
         if ratio is not None and 80 <= ratio <= 120:
             no_trade_line = "👉🏻 Sideways\n"
-        elif ratio < 80:
+        elif ratio is not None and ratio < 80:
             no_trade_line = "👇🏻 Bearish bias\n"
-        elif ratio > 120:
+        elif ratio is not None and ratio > 120:
             no_trade_line = "👆🏻 Bullish bias\n"
 
-        
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
         caption = (
-
             f"GEX below: {gex_below}\n"
             f"GEX above: {gex_above}\n"
             f"----\n"
             f"Ratio: {ratio_str}\n"
             f"{no_trade_line}"
-            #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
             f"----\n"
-            f"{direction_line} upto {largest_gex_strike:.0f}\n" 
+            f"{direction_line} upto {largest_gex_strike:.0f}\n"
             f"Net GEX: {total_net_gex:,.0f}"
-            
         )
-        
 
         with open(temp_filepath, 'rb') as photo_file:
             files = {'photo': photo_file}
