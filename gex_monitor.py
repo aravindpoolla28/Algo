@@ -227,9 +227,9 @@ def calculate_gamma_exposure():
     # Add direction logic for the distance and threshold
     direction_line = ""
     if price > largest_gex_strike:
-        direction_line = f"👇 by {int(distance_to_largest_gex)}"
+        direction_line = f"👇🏻 by {int(distance_to_largest_gex)}"
     elif price < largest_gex_strike:
-        direction_line = f"👆 by {int(distance_to_largest_gex)}"
+        direction_line = f"👆🏻 by {int(distance_to_largest_gex)}"
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
@@ -270,6 +270,10 @@ def calculate_gamma_exposure():
         no_trade_line=""
         if ratio is not None and 80 <= ratio <= 120:
             no_trade_line = "Neutral👉🏻\n"
+        elif ratio < 80
+            no_trade_line = "👇🏻\n"
+        elif ratio > 120
+            no_trade_line = "👆🏻\n"
 
         
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
