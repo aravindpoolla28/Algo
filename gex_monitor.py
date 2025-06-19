@@ -5,7 +5,7 @@ import datetime
 import json
 import os
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # For non-GUI environments
 import matplotlib.pyplot as plt
 import pytz
 import boto3
@@ -40,10 +40,11 @@ def append_gex_data_to_sheet(row):
     try:
         sh = gs_client.open(SHEET_NAME)
         worksheet = sh.sheet1
-        worksheet.append_row(row, value_input_option='USER_ENTERED')
+        result = worksheet.append_row(row, value_input_option='USER_ENTERED')
         print("Appended row to Google Sheet:", row)
+        print("Google Sheets API response:", result)
     except Exception as e:
-        print("Error appending to Google Sheet:", e)
+        print("Error appending to Google Sheet:", repr(e))
 
 def upload_to_s3(file_name, bucket, object_name=None):
     if object_name is None:
@@ -59,8 +60,6 @@ def upload_to_s3(file_name, bucket, object_name=None):
         traceback.print_exc()
         return False
     return True
-
-# --- MISSING FUNCTION IMPLEMENTATIONS ---
 
 def get_current_price():
     """Get the current BTC-PERPETUAL mark price from Deribit."""
@@ -92,7 +91,6 @@ def get_next_expiry(instruments):
     now = int(time.time() * 1000)
     for ts in expiries:
         if ts > now:
-            # Optionally, ensure it's an 8:00 UTC expiry (Deribit standard)
             dt = datetime.datetime.fromtimestamp(ts/1000, tz=datetime.timezone.utc)
             if dt.hour == 8 and dt.minute == 0:
                 return ts
@@ -116,8 +114,6 @@ def get_greeks_and_oi(instrument_name):
     except Exception as e:
         print(f"Error fetching greeks/OI for {instrument_name}: {e}")
         return None
-
-# --- MAIN GEX FUNCTION (unchanged) ---
 
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
