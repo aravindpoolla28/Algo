@@ -4,3 +4,8 @@ chmod 400 /home/cloudshell-user/my-bot-ssh-key.pem
 
 ========SSH using the full path:=========
 ssh -i /home/cloudshell-user/my-bot-ssh-key.pem ubuntu@35.154.119.138
+
+
+======to run manually======
+
+TELEGRAM_BOT_TOKEN="7787922259:AAH1qQDRcGdcjN1OPxkMoeh0vsjb5NFtzio" TELEGRAM_CHAT_ID="-4781468129" python gex_monitor.py
