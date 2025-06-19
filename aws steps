@@ -1,0 +1,6 @@
+======Prerequisites============
+ssh -i /home/cloudshell-user/my-key.pem ubuntu@35.154.119.138
+chmod 400 /home/cloudshell-user/my-bot-ssh-key.pem
+
+========SSH using the full path:=========
+ssh -i /home/cloudshell-user/my-bot-ssh-key.pem ubuntu@35.154.119.138
