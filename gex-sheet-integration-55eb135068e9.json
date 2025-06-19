@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "gex-sheet-integration",
+  "private_key_id": "55eb135068e939bc0364d070f3839043b2a8474c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDSzRei3wRTyatp\nIM65Af3N1r6gwZFeYvzQoo+ulSLhVzuzLK8VppGsF45D3k4XideM4/lEhD8l+pMR\nlH9zlQWJHOoBjzHpyh6HfuA5RezwrrkYaIVKHCv48YDFUq4P/RXaf0NY9i6cWfG0\n/3gMyYliwb1FT19OJTRQ+iXdFZIqAGdv2wRljCG+v3o4j5+dIMhoCkujbjlvZUvn\nmjHp4rHEdYfsgGX0TZ6Bt8pSk4OhF/F3RCpzZGY2toBbabjIqYiuxv3KfHGlMHie\nEV8RBOZH9khdoEvSUu8iXzWr2pNOV4forjWS6jsQhTn2CcLAcuKz/6STaMRAHr1a\nr+5v8LxhAgMBAAECggEAFwyOzOO2sj9RoI/nmpS2/tFADGLDNX9RplxdT9kFtH7t\ny6m98STtNlRoXU+1g98HXw6JnFjGG4Mk8935UOwr6/Hp55wTzed9jrzW4TGd9okc\nOv4pXiZAwUUNb/CaO1b7Ezt+uSpIhBb/letTDI7iw0DCJGMeiB8K898OJyOAf6/9\npYe4ajZfntT1j8rM7UiU1EA8HwrB5uDhlVhQ5sTiHhdm1N1Ah4qwlRJaq8cqqxXA\nFwnL3NOS6zgxH/Ph/qYA5Xaxf3nEyRy8GA8qJGuLTofXCEf86tAXAuDP22dc1TRs\nRYeUdxB78fX6923K7rkIIeFHDDvwzbIa6p0mcv4PqwKBgQD8ZEqz1TtIOQ56P+Fd\nLhCljhqalubQAP31QILrRMYOyggB13crdWxgnRAggAW4uB38LPga6xYk2bi06R+5\nQB8vML5lYh2TQGl8gnHcBflwItCvotl/TxbUv1RraYA7MjUDJ/yGM3Obctn31Auh\ns0j5J4/ifMMUy/vqQudr5mOH2wKBgQDV0JYcLmai1Oo2IjE1OvzK/dBb+8vMMDte\nRBahS1kuy5LdfGpeaaOwYHTfGgokQuxUKOd35JeAN42x6OVka31zg2UkfdsLtZAZ\nBdbj9ldknQLdFdC0m5ZNpECw2dfeIteOZ/heCJyOp4abY6JcvdTcrD878kFzizSu\n4LFaEtSvcwKBgBnx8V/1LofpHZzhjjg28Q0jw4ZattVxFKoufIbU5gtFJ3eQ/7Ye\n9wojezHsFyp6+tIeiU6zFe6p1vv57wHrHomKWDgx0tp9R5q+ChhVIOQvIAa+Fd+p\ncK5kELiN+tma+qodZS8igOLc9p0sVhnERV8fewIMUz2DDp1xTTrhTx/7AoGAbsPr\nL9g95XcFilu2QEw5r3NDoJNV5YbLCq+dRZvCLMLbZ5BPjm+NlA60HOvhex2MTqEO\nIIc0kQC2kAcF5zrkN5ZHLFtiwbMiXkQvKdNxPLc2R5BImXfMqpY/yR5hfTtxjd2A\nxj4R1Lkmu5MnBoJ1Joi5DXYXwCLKfRn75pzAv88CgYEA+2HTlW/WG8af11ebzmmk\nMeqCtB+UE9DQfW0JUXOEvGtSHDvMGaM48Lfv8ffB2nbNWP0a0C6lVxK2LKSQmTwj\nGjnnQpnkGGD3nLz8RwxZ8LZxmLXeg4p3mgzgQ5YtEppBRKsyb3w26ha/WoRoEGpx\njVqhAqWU1bE/HsEwmvvydpg=\n-----END PRIVATE KEY-----\n",
+  "client_email": "gex-sheet-writer@gex-sheet-integration.iam.gserviceaccount.com",
+  "client_id": "115421561240361361923",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/gex-sheet-writer%40gex-sheet-integration.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
