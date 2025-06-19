@@ -269,11 +269,11 @@ def calculate_gamma_exposure():
 
         no_trade_line=""
         if ratio is not None and 80 <= ratio <= 120:
-            no_trade_line = "Neutral👉🏻\n"
+            no_trade_line = "👉🏻 Sideways\n"
         elif ratio < 80:
-            no_trade_line = "👇🏻\n"
+            no_trade_line = "👇🏻 Bearish bias\n"
         elif ratio > 120:
-            no_trade_line = "👆🏻\n"
+            no_trade_line = "👆🏻 Bullish bias\n"
 
         
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
@@ -286,7 +286,7 @@ def calculate_gamma_exposure():
             f"{no_trade_line}"
             #f"Distance to ({largest_gex_strike:.0f}): {int(distance_to_largest_gex)} points\n"
             f"----\n"
-            f"{direction_line} to {largest_gex_strike:.0f}\n" 
+            f"{direction_line} upto {largest_gex_strike:.0f}\n" 
             f"Net GEX: {total_net_gex:,.0f}"
             
         )
