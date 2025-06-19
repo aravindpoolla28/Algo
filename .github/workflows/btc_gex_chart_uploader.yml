@@ -1,13 +1,14 @@
 name: BTC GEX Chart Uploader
 
 on:
-  schedule:
-    # Runs every 15 minutes
-    # M H D M W
-    # The cron schedule uses UTC time.
-    # For example: '0,15,30,45 * * * *' would run at :00, :15, :30, :45 past every hour UTC.
-    - cron: '*/15 * * * *' # Runs every 15 minutes
+  # Removed the 'schedule' trigger to prevent automatic runs.
   workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+    # You can add inputs here if you want to pass parameters when manually triggering
+    # inputs:
+    #   some_param:
+    #     description: 'A parameter for manual runs'
+    #     required: false
+    #     default: 'default_value'
 
 jobs:
   build:
@@ -32,7 +33,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1 # <--- IMPORTANT: REPLACE THIS with your S3 bucket's region
+        aws-region: ap-south-1 # <--- IMPORTANT: REPLACE THIS with your S3 bucket's region (if applicable)
 
     - name: Run Python script
       run: |
