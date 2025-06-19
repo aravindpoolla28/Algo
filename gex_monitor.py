@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 import pytz # For timezone handling
 import boto3 # For S3 upload
 
+# --- Google Sheets Integration ---
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
 # --- Configuration ---
 BASE_URL = "https://www.deribit.com/api/v2"
 HEADERS = {"Accept": "application/json"}
@@ -25,6 +29,27 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 S3_BUCKET_NAME = "gex-charts-mybitcoin"
 LATEST_CHART_KEY = "latest_gex_chart.png"
 
+# --- Google Sheets Setup ---
+SHEET_CREDENTIALS = 'gex-sheet-integration-1fa62d638e51.json'
+SHEET_NAME = 'Sheet1'  # <--- Replace with your actual sheet name
+
+scope = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
+
+creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDENTIALS, scope)
+gs_client = gspread.authorize(creds)
+
+def append_gex_data_to_sheet(row):
+    try:
+        sh = gs_client.open(SHEET_NAME)
+        worksheet = sh.sheet1  # logs to first sheet
+        worksheet.append_row(row, value_input_option='USER_ENTERED')
+        print("Appended row to Google Sheet:", row)
+    except Exception as e:
+        print("Error appending to Google Sheet:", e)
+
 def upload_to_s3(file_name, bucket, object_name=None):
     if object_name is None:
         object_name = os.path.basename(file_name)
@@ -40,82 +65,7 @@ def upload_to_s3(file_name, bucket, object_name=None):
         return False
     return True
 
-def get_current_price():
-    url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        data = response.json()
-        if data and "result" in data and "index_price" in data["result"]:
-            return float(data["result"]["index_price"])
-        else:
-            print(f"API Error: No 'result' or 'index_price' in response for {url}. Full response: {data}")
-            return None
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching BTC-PERPETUAL price: {e}")
-        return None
-
-def get_instruments():
-    url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        data = response.json()
-        if data and "result" in data and isinstance(data["result"], list):
-            return data["result"]
-        else:
-            print(f"API Error: No 'result' list in response for {url}. Full response: {data}")
-            return []
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching instruments: {e}")
-        return []
-
-def get_greeks_and_oi(instrument_name):
-    url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        result = response.json()["result"]
-        if "greeks" in result and "gamma" in result["greeks"] and "open_interest" in result:
-            return {
-                "gamma": result["greeks"]["gamma"],
-                "oi": result["open_interest"]
-            }
-        else:
-            return None
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching greeks/oi for {instrument_name}: {e}")
-        return None
-    except KeyError:
-        print(f"API Error: Unexpected JSON structure for {instrument_name}. Full response: {response.json()}")
-        return None
-
-def get_next_expiry(instruments):
-    now_utc = datetime.datetime.now(datetime.timezone.utc)
-    today_8am_utc = now_utc.replace(hour=8, minute=0, second=0, microsecond=0)
-    if now_utc < today_8am_utc:
-        next_expiry_date_obj = today_8am_utc
-    else:
-        next_expiry_date_obj = (now_utc + datetime.timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-    return int(next_expiry_date_obj.timestamp() * 1000)
-
-def format_ts_to_label(ts_ms):
-    return datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc).strftime('%d%b%y').upper()
-
-def above_below_text(strike, price, label, show_points=True, show_value=False):
-    diff = strike - price
-    direction = "above" if diff < 0 else "below"
-    diff_val = abs(int(diff))
-    parts = []
-    if show_points:
-        parts.append(f"{diff_val} points")
-    else:
-        parts.append(f"{diff_val}")
-    parts.append(direction)
-    parts.append(label)
-    if show_value:
-        parts.append(f"({strike:,.0f})")
-    return " ".join(parts)
+# ... [rest of your unchanged functions here] ...
 
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
@@ -230,6 +180,20 @@ def calculate_gamma_exposure():
         direction_line = f"👇🏻 by {int(distance_to_largest_gex)}"
     elif price < largest_gex_strike:
         direction_line = f"👆🏻 by {int(distance_to_largest_gex)}"
+
+    # --- Google Sheets Logging: Append Row ---
+    sheet_row = [
+        now_ist.strftime("%Y-%m-%d %H:%M:%S"),  # Timestamp IST
+        price,
+        expiry_label,
+        gex_below,
+        gex_above,
+        ratio_str,
+        largest_gex_strike,
+        direction_line,
+        total_net_gex
+    ]
+    append_gex_data_to_sheet(sheet_row)
 
     # --- Matplotlib Charting, Telegram Send & S3 Upload Logic ---
     temp_dir = "/tmp"
