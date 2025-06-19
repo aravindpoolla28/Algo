@@ -270,9 +270,9 @@ def calculate_gamma_exposure():
         no_trade_line=""
         if ratio is not None and 80 <= ratio <= 120:
             no_trade_line = "Neutral👉🏻\n"
-        elif ratio < 80
+        elif ratio < 80:
             no_trade_line = "👇🏻\n"
-        elif ratio > 120
+        elif ratio > 120:
             no_trade_line = "👆🏻\n"
 
         
