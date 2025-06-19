@@ -31,7 +31,7 @@ S3_BUCKET_NAME = "gex-charts-mybitcoin"
 LATEST_CHART_KEY = "latest_gex_chart.png"
 
 # --- Google Sheets Setup ---
-SHEET_CREDENTIALS = 'gex-sheet-integration-1fa62d638e51.json'
+SHEET_CREDENTIALS = '/home/ubuntu/Algo/gex-sheet-integration-1fa62d638e51.json'
 SHEET_NAME = 'Sheet1'  # <--- Replace with your actual sheet name
 
 scope = [
