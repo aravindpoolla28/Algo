@@ -476,4 +476,3 @@ def calculate_gamma_exposure():
         plt.xlabel('Strike Price', fontsize=12)
         plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
-    
