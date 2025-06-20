@@ -476,3 +476,11 @@ def calculate_gamma_exposure():
         plt.xlabel('Strike Price', fontsize=12)
         plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.legend()
+        plt.savefig(temp_filepath)
+        plt.close()
+        print(f"Plot saved locally to: {temp_filepath}")
+    except Exception as e:
+        print(f"Error generating or saving chart: {e}")
