@@ -18,6 +18,9 @@ BASE_URL = "https://www.deribit.com/api/v2"
 HEADERS = {"Accept": "application/json"}
 PRICE_RANGE_POINTS = 6000
 
+# Debug mode - set to True to enable detailed logging
+DEBUG_MODE = True
+
 IST = pytz.timezone('Asia/Kolkata')
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -26,6 +29,7 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 S3_BUCKET_NAME = "gex-charts-mybitcoin"
 LATEST_CHART_KEY = "latest_gex_chart.png"
 
+# Update this path to match your actual credentials file location
 SHEET_CREDENTIALS = '/home/ubuntu/Algo/gex-sheet-integration-1fa62d638e51.json'
 SHEET_NAME = 'BTC GEX log'
 
@@ -33,23 +37,41 @@ SHEET_NAME = 'BTC GEX log'
 RISK_FREE_RATE = 0.05  # 5% annual risk-free rate
 DAYS_IN_YEAR = 365
 
+# Number of strikes to try for ATM straddle calculation
+MAX_STRIKES_TO_TRY = 5
+
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDENTIALS, scope)
-gs_client = gspread.authorize(creds)
+def debug_log(message):
+    """Print debug messages if DEBUG_MODE is enabled"""
+    if DEBUG_MODE:
+        print(f"[DEBUG] {message}")
 
 def append_gex_data_to_sheet(row):
     try:
+        # Check if credentials file exists
+        if not os.path.exists(SHEET_CREDENTIALS):
+            print(f"WARNING: Google Sheets credentials file not found at {SHEET_CREDENTIALS}")
+            print("Skipping Google Sheets update. Please check the file path.")
+            return False
+            
+        creds = ServiceAccountCredentials.from_json_keyfile_name(SHEET_CREDENTIALS, scope)
+        gs_client = gspread.authorize(creds)
         sh = gs_client.open(SHEET_NAME)
         worksheet = sh.sheet1
         result = worksheet.append_row(row, value_input_option='USER_ENTERED')
         print("Appended row to Google Sheet:", row)
         print("Google Sheets API response:", result)
+        return True
+    except FileNotFoundError:
+        print(f"ERROR: Google Sheets credentials file not found at {SHEET_CREDENTIALS}")
+        return False
     except Exception as e:
-        print("Error appending to Google Sheet:", repr(e))
+        print(f"Error appending to Google Sheet: {repr(e)}")
+        return False
 
 def upload_to_s3(file_name, bucket, object_name=None):
     if object_name is None:
@@ -70,10 +92,13 @@ def get_current_price():
     """Get the current BTC-PERPETUAL mark price from Deribit."""
     try:
         url = f"{BASE_URL}/public/ticker?instrument_name=BTC-PERPETUAL"
+        debug_log(f"Fetching current price from: {url}")
         resp = requests.get(url, headers=HEADERS, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        return data['result']['mark_price']
+        price = data['result']['mark_price']
+        debug_log(f"Current price API response: {json.dumps(data['result'], indent=2)}")
+        return price
     except Exception as e:
         print(f"Error fetching current BTC price: {e}")
         return None
@@ -82,9 +107,11 @@ def get_instruments():
     """Fetch all BTC option instruments from Deribit."""
     try:
         url = f"{BASE_URL}/public/get_instruments?currency=BTC&kind=option&expired=false"
+        debug_log(f"Fetching instruments from: {url}")
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         data = resp.json()
+        debug_log(f"Found {len(data['result'])} instruments")
         return data['result']
     except Exception as e:
         print(f"Error fetching BTC instruments: {e}")
@@ -121,75 +148,141 @@ def get_greeks_and_oi(instrument_name):
         return None
 
 def get_option_price(instrument_name):
-    """Fetch option price from Deribit."""
+    """Fetch option price from Deribit with enhanced debugging."""
     try:
         url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
+        debug_log(f"Fetching option price for {instrument_name} from: {url}")
         resp = requests.get(url, headers=HEADERS, timeout=10)
         resp.raise_for_status()
         data = resp.json()['result']
+        
+        # Log the full response for debugging
+        debug_log(f"Option price API response for {instrument_name}: {json.dumps(data, indent=2)}")
+        
         mark_price = data.get('mark_price', 0.0)
+        
+        # Validate the price
+        if mark_price <= 0:
+            debug_log(f"WARNING: Zero or negative price ({mark_price}) returned for {instrument_name}")
+            
+        # Check other price indicators if mark_price is zero
+        if mark_price == 0:
+            debug_log("Attempting to use alternative price indicators...")
+            # Try last_price if available
+            last_price = data.get('last_price')
+            if last_price and last_price > 0:
+                debug_log(f"Using last_price ({last_price}) instead of mark_price")
+                return last_price
+                
+            # Try best_bid_price if available
+            best_bid = data.get('best_bid_price')
+            if best_bid and best_bid > 0:
+                debug_log(f"Using best_bid_price ({best_bid}) instead of mark_price")
+                return best_bid
+                
+            # Try best_ask_price if available
+            best_ask = data.get('best_ask_price')
+            if best_ask and best_ask > 0:
+                debug_log(f"Using best_ask_price ({best_ask}) instead of mark_price")
+                return best_ask
+                
+            # Try settlement_price if available
+            settlement = data.get('settlement_price')
+            if settlement and settlement > 0:
+                debug_log(f"Using settlement_price ({settlement}) instead of mark_price")
+                return settlement
+        
         return mark_price
     except Exception as e:
         print(f"Error fetching option price for {instrument_name}: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def calculate_straddle_premium(instruments, price, expiry_ts):
-    """Calculate ATM straddle premium for the given expiry."""
+    """Calculate ATM straddle premium for the given expiry with enhanced error handling and fallbacks."""
     try:
-        # Find the closest ATM strike
-        atm_strikes = sorted([i["strike"] for i in instruments if i["expiration_timestamp"] == expiry_ts], 
+        # Find all strikes sorted by distance from current price
+        all_strikes = sorted([i["strike"] for i in instruments if i["expiration_timestamp"] == expiry_ts], 
                             key=lambda x: abs(x - price))
         
-        if not atm_strikes:
+        if not all_strikes:
             print("No strikes found for straddle calculation")
             return None
             
-        atm_strike = atm_strikes[0]
-        print(f"Using strike {atm_strike} for ATM straddle calculation (current price: {price})")
+        debug_log(f"Found {len(all_strikes)} strikes for expiry {format_ts_to_label(expiry_ts)}")
+        debug_log(f"Current price: {price}, closest strikes: {all_strikes[:5]}")
         
-        # Find the call and put instruments for this strike
-        call_instrument = None
-        put_instrument = None
+        # Try multiple strikes in order of proximity to current price
+        strikes_to_try = all_strikes[:min(MAX_STRIKES_TO_TRY, len(all_strikes))]
         
-        for instr in instruments:
-            if instr["expiration_timestamp"] == expiry_ts and instr["strike"] == atm_strike:
-                if instr["option_type"] == "call":
-                    call_instrument = instr["instrument_name"]
-                else:
-                    put_instrument = instr["instrument_name"]
-        
-        if not call_instrument or not put_instrument:
-            print(f"Could not find both call and put instruments for strike {atm_strike}")
-            return None
+        for atm_strike in strikes_to_try:
+            debug_log(f"Attempting straddle calculation with strike {atm_strike}")
             
-        # Get prices for call and put
-        call_price = get_option_price(call_instrument)
-        put_price = get_option_price(put_instrument)
-        
-        if call_price is None or put_price is None:
-            print("Failed to fetch option prices for straddle calculation")
-            return None
+            # Find the call and put instruments for this strike
+            call_instrument = None
+            put_instrument = None
             
-        # Calculate straddle premium
-        straddle_premium = call_price + put_price
-        straddle_premium_pct = (straddle_premium / price) * 100
+            for instr in instruments:
+                if instr["expiration_timestamp"] == expiry_ts and instr["strike"] == atm_strike:
+                    if instr["option_type"] == "call":
+                        call_instrument = instr["instrument_name"]
+                    else:
+                        put_instrument = instr["instrument_name"]
+            
+            if not call_instrument or not put_instrument:
+                debug_log(f"Could not find both call and put instruments for strike {atm_strike}, trying next strike")
+                continue
+                
+            debug_log(f"Found instruments: Call: {call_instrument}, Put: {put_instrument}")
+            
+            # Get prices for call and put
+            call_price = get_option_price(call_instrument)
+            put_price = get_option_price(put_instrument)
+            
+            debug_log(f"Retrieved prices: Call: {call_price}, Put: {put_price}")
+            
+            if call_price is None or put_price is None:
+                debug_log("Failed to fetch option prices, trying next strike")
+                continue
+                
+            if call_price <= 0 or put_price <= 0:
+                debug_log(f"Invalid prices (call: {call_price}, put: {put_price}), trying next strike")
+                continue
+                
+            # Calculate straddle premium
+            straddle_premium = call_price + put_price
+            straddle_premium_pct = (straddle_premium / price) * 100
+            
+            # Calculate days to expiry for annualized values
+            now = int(time.time() * 1000)
+            days_to_expiry = (expiry_ts - now) / (1000 * 60 * 60 * 24)
+            
+            # Calculate implied volatility from straddle premium
+            # Using simplified approximation: IV ≈ straddle_premium / (spot_price * sqrt(T))
+            # where T is time to expiry in years
+            time_to_expiry_years = days_to_expiry / DAYS_IN_YEAR
+            implied_vol_approx = straddle_premium / (price * math.sqrt(time_to_expiry_years))
+            
+            debug_log(f"Successfully calculated straddle premium: ${straddle_premium:.2f} ({straddle_premium_pct:.2f}%)")
+            debug_log(f"Implied volatility: {implied_vol_approx * 100:.2f}%, Days to expiry: {days_to_expiry:.2f}")
+            
+            return {
+                "straddle_premium": straddle_premium,
+                "straddle_premium_pct": straddle_premium_pct,
+                "days_to_expiry": days_to_expiry,
+                "implied_volatility_approx": implied_vol_approx * 100,  # Convert to percentage
+                "strike": atm_strike,
+                "call_price": call_price,
+                "put_price": put_price,
+                "call_instrument": call_instrument,
+                "put_instrument": put_instrument
+            }
         
-        # Calculate days to expiry for annualized values
-        now = int(time.time() * 1000)
-        days_to_expiry = (expiry_ts - now) / (1000 * 60 * 60 * 24)
+        # If we get here, all strikes failed
+        print("Could not calculate straddle premium: all strikes failed validation")
+        return None
         
-        # Calculate implied volatility from straddle premium
-        # Using simplified approximation: IV ≈ straddle_premium / (spot_price * sqrt(T))
-        # where T is time to expiry in years
-        time_to_expiry_years = days_to_expiry / DAYS_IN_YEAR
-        implied_vol_approx = straddle_premium / (price * math.sqrt(time_to_expiry_years))
-        
-        return {
-            "straddle_premium": straddle_premium,
-            "straddle_premium_pct": straddle_premium_pct,
-            "days_to_expiry": days_to_expiry,
-            "implied_volatility_approx": implied_vol_approx * 100  # Convert to percentage
-        }
     except Exception as e:
         print(f"Error calculating straddle premium: {e}")
         import traceback
@@ -238,6 +331,7 @@ def calculate_gamma_exposure():
     print(f"Targeting next expiry: {expiry_label} (approx. {datetime.datetime.fromtimestamp(target_expiry_ts/1000, tz=datetime.timezone.utc).isoformat()} UTC)")
 
     # Calculate straddle premium for the next expiry
+    print("\nCalculating ATM straddle premium...")
     straddle_data = calculate_straddle_premium(instruments, price, target_expiry_ts)
     straddle_premium = None
     straddle_premium_pct = None
@@ -250,6 +344,8 @@ def calculate_gamma_exposure():
         print(f"ATM Straddle Premium: ${straddle_premium:.2f} ({straddle_premium_pct:.2f}% of spot)")
         print(f"Implied Volatility (approx): {implied_vol:.2f}%")
         print(f"Days to Expiry: {straddle_data['days_to_expiry']:.2f}")
+        print(f"Strike: {straddle_data['strike']}")
+        print(f"Call Price: ${straddle_data['call_price']:.2f}, Put Price: ${straddle_data['put_price']:.2f}")
     else:
         print("Could not calculate straddle premium")
 
@@ -347,7 +443,10 @@ def calculate_gamma_exposure():
     else:
         sheet_row.extend(["N/A", "N/A", "N/A"])
     
-    append_gex_data_to_sheet(sheet_row)
+    # Try to append to Google Sheet, but continue if it fails
+    sheet_result = append_gex_data_to_sheet(sheet_row)
+    if not sheet_result:
+        print("WARNING: Failed to update Google Sheet, continuing with other operations")
 
     temp_dir = "/tmp"
     output_filename = "current_gex_chart.png"
@@ -377,66 +476,4 @@ def calculate_gamma_exposure():
         plt.xlabel('Strike Price', fontsize=12)
         plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(temp_filepath)
-        print(f"Plot saved locally to: {temp_filepath}")
-        plt.close()
-
-        no_trade_line=""
-        if ratio is not None and 80 <= ratio <= 120:
-            no_trade_line = "👉🏻 Sideways\n"
-        elif ratio is not None and ratio < 80:
-            no_trade_line = "👇🏻 Bearish bias\n"
-        elif ratio is not None and ratio > 120:
-            no_trade_line = "👆🏻 Bullish bias\n"
-
-        telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-        
-        # Add straddle premium to the caption if available
-        straddle_info = ""
-        if straddle_premium is not None:
-            straddle_info = (
-                f"----\n"
-                f"Straddle Premium: ${straddle_premium:.2f} ({straddle_premium_pct:.2f}%)\n"
-                f"Implied Vol: {implied_vol:.2f}%\n"
-            )
-        
-        caption = (
-            f"GEX below: {gex_below}\n"
-            f"GEX above: {gex_above}\n"
-            f"----\n"
-            f"Ratio: {ratio_str}\n"
-            f"{no_trade_line}"
-            f"{straddle_info}"
-            f"----\n"
-            f"{direction_line} upto {largest_gex_strike:.0f}\n"
-            f"Net GEX: {total_net_gex:,.0f}"
-        )
-
-        with open(temp_filepath, 'rb') as photo_file:
-            files = {'photo': photo_file}
-            data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
-            print("Sending chart to Telegram...")
-            response = requests.post(telegram_url, files=files, data=data)
-            response.raise_for_status()
-            print(f"Chart sent to Telegram. Response: {response.json()}")
-
-        print(f"Uploading chart to S3 bucket: {S3_BUCKET_NAME}...")
-        upload_to_s3(temp_filepath, S3_BUCKET_NAME, LATEST_CHART_KEY)
-    except Exception as e:
-        print(f"Error generating plot, sending to Telegram, or uploading to S3: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        if os.path.exists(temp_filepath):
-            os.remove(temp_filepath)
-            print(f"Cleaned up temporary file: {temp_filepath}")
-
-    print("Data collection cycle completed successfully.")
-    print("==================================================")
-
-if __name__ == "__main__":
-    calculate_gamma_exposure()
     
