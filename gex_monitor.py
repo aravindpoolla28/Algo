@@ -9,6 +9,7 @@ matplotlib.use('Agg')  # For non-GUI environments
 import matplotlib.pyplot as plt
 import pytz
 import boto3
+import math
 
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -27,6 +28,10 @@ LATEST_CHART_KEY = "latest_gex_chart.png"
 
 SHEET_CREDENTIALS = '/home/ubuntu/Algo/gex-sheet-integration-1fa62d638e51.json'
 SHEET_NAME = 'BTC GEX log'
+
+# Constants for straddle premium calculation
+RISK_FREE_RATE = 0.05  # 5% annual risk-free rate
+DAYS_IN_YEAR = 365
 
 scope = [
     "https://spreadsheets.google.com/feeds",
@@ -115,6 +120,82 @@ def get_greeks_and_oi(instrument_name):
         print(f"Error fetching greeks/OI for {instrument_name}: {e}")
         return None
 
+def get_option_price(instrument_name):
+    """Fetch option price from Deribit."""
+    try:
+        url = f"{BASE_URL}/public/ticker?instrument_name={instrument_name}"
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()['result']
+        mark_price = data.get('mark_price', 0.0)
+        return mark_price
+    except Exception as e:
+        print(f"Error fetching option price for {instrument_name}: {e}")
+        return None
+
+def calculate_straddle_premium(instruments, price, expiry_ts):
+    """Calculate ATM straddle premium for the given expiry."""
+    try:
+        # Find the closest ATM strike
+        atm_strikes = sorted([i["strike"] for i in instruments if i["expiration_timestamp"] == expiry_ts], 
+                            key=lambda x: abs(x - price))
+        
+        if not atm_strikes:
+            print("No strikes found for straddle calculation")
+            return None
+            
+        atm_strike = atm_strikes[0]
+        print(f"Using strike {atm_strike} for ATM straddle calculation (current price: {price})")
+        
+        # Find the call and put instruments for this strike
+        call_instrument = None
+        put_instrument = None
+        
+        for instr in instruments:
+            if instr["expiration_timestamp"] == expiry_ts and instr["strike"] == atm_strike:
+                if instr["option_type"] == "call":
+                    call_instrument = instr["instrument_name"]
+                else:
+                    put_instrument = instr["instrument_name"]
+        
+        if not call_instrument or not put_instrument:
+            print(f"Could not find both call and put instruments for strike {atm_strike}")
+            return None
+            
+        # Get prices for call and put
+        call_price = get_option_price(call_instrument)
+        put_price = get_option_price(put_instrument)
+        
+        if call_price is None or put_price is None:
+            print("Failed to fetch option prices for straddle calculation")
+            return None
+            
+        # Calculate straddle premium
+        straddle_premium = call_price + put_price
+        straddle_premium_pct = (straddle_premium / price) * 100
+        
+        # Calculate days to expiry for annualized values
+        now = int(time.time() * 1000)
+        days_to_expiry = (expiry_ts - now) / (1000 * 60 * 60 * 24)
+        
+        # Calculate implied volatility from straddle premium
+        # Using simplified approximation: IV ≈ straddle_premium / (spot_price * sqrt(T))
+        # where T is time to expiry in years
+        time_to_expiry_years = days_to_expiry / DAYS_IN_YEAR
+        implied_vol_approx = straddle_premium / (price * math.sqrt(time_to_expiry_years))
+        
+        return {
+            "straddle_premium": straddle_premium,
+            "straddle_premium_pct": straddle_premium_pct,
+            "days_to_expiry": days_to_expiry,
+            "implied_volatility_approx": implied_vol_approx * 100  # Convert to percentage
+        }
+    except Exception as e:
+        print(f"Error calculating straddle premium: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def calculate_gamma_exposure():
     print("\n" + "=" * 50)
     print("Beginning new data collection cycle...")
@@ -155,6 +236,22 @@ def calculate_gamma_exposure():
 
     expiry_label = format_ts_to_label(target_expiry_ts)
     print(f"Targeting next expiry: {expiry_label} (approx. {datetime.datetime.fromtimestamp(target_expiry_ts/1000, tz=datetime.timezone.utc).isoformat()} UTC)")
+
+    # Calculate straddle premium for the next expiry
+    straddle_data = calculate_straddle_premium(instruments, price, target_expiry_ts)
+    straddle_premium = None
+    straddle_premium_pct = None
+    implied_vol = None
+    
+    if straddle_data:
+        straddle_premium = straddle_data["straddle_premium"]
+        straddle_premium_pct = straddle_data["straddle_premium_pct"]
+        implied_vol = straddle_data["implied_volatility_approx"]
+        print(f"ATM Straddle Premium: ${straddle_premium:.2f} ({straddle_premium_pct:.2f}% of spot)")
+        print(f"Implied Volatility (approx): {implied_vol:.2f}%")
+        print(f"Days to Expiry: {straddle_data['days_to_expiry']:.2f}")
+    else:
+        print("Could not calculate straddle premium")
 
     relevant_options_all_strikes = [
         i for i in instruments
@@ -227,6 +324,7 @@ def calculate_gamma_exposure():
     elif price < largest_gex_strike:
         direction_line = f"👆🏻 by {int(distance_to_largest_gex)}"
 
+    # Add straddle premium to the sheet row
     sheet_row = [
         now_ist.strftime("%Y-%m-%d %H:%M:%S"),
         price,
@@ -238,6 +336,17 @@ def calculate_gamma_exposure():
         direction_line,
         total_net_gex
     ]
+    
+    # Add straddle premium data if available
+    if straddle_premium is not None:
+        sheet_row.extend([
+            f"{straddle_premium:.2f}",
+            f"{straddle_premium_pct:.2f}%",
+            f"{implied_vol:.2f}%"
+        ])
+    else:
+        sheet_row.extend(["N/A", "N/A", "N/A"])
+    
     append_gex_data_to_sheet(sheet_row)
 
     temp_dir = "/tmp"
@@ -284,12 +393,23 @@ def calculate_gamma_exposure():
             no_trade_line = "👆🏻 Bullish bias\n"
 
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+        
+        # Add straddle premium to the caption if available
+        straddle_info = ""
+        if straddle_premium is not None:
+            straddle_info = (
+                f"----\n"
+                f"Straddle Premium: ${straddle_premium:.2f} ({straddle_premium_pct:.2f}%)\n"
+                f"Implied Vol: {implied_vol:.2f}%\n"
+            )
+        
         caption = (
             f"GEX below: {gex_below}\n"
             f"GEX above: {gex_above}\n"
             f"----\n"
             f"Ratio: {ratio_str}\n"
             f"{no_trade_line}"
+            f"{straddle_info}"
             f"----\n"
             f"{direction_line} upto {largest_gex_strike:.0f}\n"
             f"Net GEX: {total_net_gex:,.0f}"
@@ -319,3 +439,4 @@ def calculate_gamma_exposure():
 
 if __name__ == "__main__":
     calculate_gamma_exposure()
+    
