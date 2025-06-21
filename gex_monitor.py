@@ -257,26 +257,29 @@ def calculate_gamma_exposure():
 
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
 
-        # Plot call OI as red bars and put OI as green bars
-        plt.bar(
-            [s - bar_width/3 for s in sorted_strikes],
+        # Stacked bars: Call OI (red, bottom), Put OI (green, stacked above Call OI)
+        bars_call = plt.bar(
+            sorted_strikes,
             call_oi_values,
-            width=bar_width/2,
+            width=bar_width,
             color='red',
             alpha=0.6,
             label='Call OI'
         )
-        plt.bar(
-            [s + bar_width/3 for s in sorted_strikes],
+        bars_put = plt.bar(
+            sorted_strikes,
             put_oi_values,
-            width=bar_width/2,
+            width=bar_width,
+            bottom=call_oi_values,
             color='green',
             alpha=0.6,
             label='Put OI'
         )
 
-        # Plot GEX as a blue line
+        # GEX as a blue line with data labels
         plt.plot(sorted_strikes, gex_values, color='blue', marker='o', linewidth=2, label='Net GEX')
+        for x, y in zip(sorted_strikes, gex_values):
+            plt.text(x, y, f"{y}", fontsize=10, color='blue', ha='center', va='bottom' if y >= 0 else 'top')
 
         plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
