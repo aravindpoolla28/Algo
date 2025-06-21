@@ -234,6 +234,20 @@ def calculate_gamma_exposure():
     elif price < largest_gex_strike:
         direction_line = f"👆🏻 by {int(distance_to_largest_gex)}"
 
+    # --- OI In The Money Calculations ---
+
+    # Call OI in the money = strikes BELOW price
+    total_call_oi = sum(call_oi_values)
+    call_oi_itm = sum(call_oi_map[s] for s in sorted_strikes if s < price)
+    call_oi_itm_pct = (call_oi_itm / total_call_oi) * 100 if total_call_oi > 0 else 0
+
+    # Put OI in the money = strikes ABOVE price
+    total_put_oi = sum(put_oi_values)
+    put_oi_itm = sum(put_oi_map[s] for s in sorted_strikes if s > price)
+    put_oi_itm_pct = (put_oi_itm / total_put_oi) * 100 if total_put_oi > 0 else 0
+
+    # --- END OI In The Money Calculations ---
+
     sheet_row = [
         now_ist.strftime("%Y-%m-%d %H:%M:%S"),
         price,
@@ -258,8 +272,7 @@ def calculate_gamma_exposure():
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
 
         # SEPARATED bars: Call OI (red, left), Put OI (green, right)
-        indices = range(len(sorted_strikes))
-        shift = bar_width / 5 #3
+        shift = bar_width / 5
 
         plt.bar(
             [s - shift for s in sorted_strikes],
@@ -282,6 +295,17 @@ def calculate_gamma_exposure():
         plt.plot(sorted_strikes, gex_values, color='blue', marker='o', linewidth=2, label='Net GEX')
         for x, y in zip(sorted_strikes, gex_values):
             plt.text(x, y, f"{y}", fontsize=10, color='blue', ha='center', va='bottom' if y >= 0 else 'top')
+
+        # OI ITM overlay top left
+        plt.gcf().text(
+            0.01, 0.97,
+            f"Call OI ITM: {call_oi_itm_pct:.1f}%\nPut OI ITM: {put_oi_itm_pct:.1f}%",
+            fontsize=12,
+            color='black',
+            ha='left',
+            va='top',
+            bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="gray", alpha=0.7)
+        )
 
         plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
@@ -313,7 +337,8 @@ def calculate_gamma_exposure():
             f"{no_trade_line}"
             f"----\n"
             f"{direction_line} upto {largest_gex_strike:.0f}\n"
-            f"Net GEX: {total_net_gex:,.0f}"
+            f"Net GEX: {total_net_gex:,.0f}\n"
+            f"Call OI ITM: {call_oi_itm_pct:.1f}% | Put OI ITM: {put_oi_itm_pct:.1f}%"
         )
 
         with open(temp_filepath, 'rb') as photo_file:
