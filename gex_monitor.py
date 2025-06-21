@@ -257,20 +257,22 @@ def calculate_gamma_exposure():
 
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
 
-        # Stacked bars: Call OI (red, bottom), Put OI (green, stacked above Call OI)
-        bars_call = plt.bar(
-            sorted_strikes,
+        # SEPARATED bars: Call OI (red, left), Put OI (green, right)
+        indices = range(len(sorted_strikes))
+        shift = bar_width / 3
+
+        plt.bar(
+            [s - shift for s in sorted_strikes],
             call_oi_values,
-            width=bar_width,
+            width=bar_width/2,
             color='red',
             alpha=0.6,
             label='Call OI'
         )
-        bars_put = plt.bar(
-            sorted_strikes,
+        plt.bar(
+            [s + shift for s in sorted_strikes],
             put_oi_values,
-            width=bar_width,
-            bottom=call_oi_values,
+            width=bar_width/2,
             color='green',
             alpha=0.6,
             label='Put OI'
