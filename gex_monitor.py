@@ -197,14 +197,21 @@ def calculate_gamma_exposure():
             strike_map[strike]["put_oi_sum"] += oi_from_api
 
     net_gex_map = {}
+    call_oi_map = {}
+    put_oi_map = {}
+
     for strike in strike_map:
         call_total_gamma_oi = strike_map[strike]["call_gamma_sum"]
         put_total_gamma_oi = strike_map[strike]["put_gamma_sum"]
         net_gex = call_total_gamma_oi - put_total_gamma_oi
         net_gex_map[strike] = round(net_gex * 1000)
+        call_oi_map[strike] = strike_map[strike]["call_oi_sum"]
+        put_oi_map[strike] = strike_map[strike]["put_oi_sum"]
 
     sorted_strikes = sorted(net_gex_map.keys())
     gex_values = [net_gex_map[s] for s in sorted_strikes]
+    call_oi_values = [call_oi_map[s] for s in sorted_strikes]
+    put_oi_values = [put_oi_map[s] for s in sorted_strikes]
     total_net_gex = sum(gex_values)
     current_time_hhmm = now_ist.strftime('%H:%M')
 
@@ -247,26 +254,35 @@ def calculate_gamma_exposure():
     try:
         print("Generating and saving chart locally...")
         plt.figure(figsize=(12, 7))
+
         bar_width = min(abs(sorted_strikes[i+1]-sorted_strikes[i]) for i in range(len(sorted_strikes)-1)) * 0.8 if len(sorted_strikes) > 1 else 1000
-        bars = plt.bar(sorted_strikes, gex_values, width=bar_width, color='skyblue')
-        for bar in bars:
-            yval = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval), ha='center', va='bottom', fontsize=12)
-        for i, strike in enumerate(sorted_strikes):
-            if strike == max(net_gex_map, key=net_gex_map.get):
-                bars[i].set_color('green')
-            elif strike == min(net_gex_map, key=net_gex_map.get):
-                bars[i].set_color('red')
-            elif strike == min(net_gex_map.keys(), key=lambda x: abs(x - price)):
-                bars[i].set_color('orange')
-            elif strike == largest_gex_strike:
-                bars[i].set_edgecolor('black')
-                bars[i].set_linewidth(2)
+
+        # Plot call OI as red bars and put OI as green bars
+        plt.bar(
+            [s - bar_width/3 for s in sorted_strikes],
+            call_oi_values,
+            width=bar_width/2,
+            color='red',
+            alpha=0.6,
+            label='Call OI'
+        )
+        plt.bar(
+            [s + bar_width/3 for s in sorted_strikes],
+            put_oi_values,
+            width=bar_width/2,
+            color='green',
+            alpha=0.6,
+            label='Put OI'
+        )
+
+        # Plot GEX as a blue line
+        plt.plot(sorted_strikes, gex_values, color='blue', marker='o', linewidth=2, label='Net GEX')
+
         plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)
         plt.axvline(price, color='red', linestyle=':', linewidth=2, label=f'Current BTC Price (${price:,.0f})')
         plt.title('BTC GEX for next expiry', fontsize=14)
         plt.xlabel('Strike Price', fontsize=12)
-        plt.ylabel('Net Gamma Exposure (BTC Equivalent)', fontsize=12)
+        plt.ylabel('Net Gamma Exposure (BTC Eq) & OI', fontsize=12)
         plt.xticks(sorted_strikes, rotation=90, ha='right')
         plt.grid(axis='y', linestyle='--', alpha=0.7)
         plt.legend()
